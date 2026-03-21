@@ -31,6 +31,8 @@ export function ChannelAnalysis() {
   const [fetchLogType, setFetchLogType] = useState('info')
   const [channelInfo, setChannelInfo] = useState(null)
   const [videos, setVideos] = useState([])
+  // afterFilterCount: videos remaining after min-length filter
+  const [afterFilterCount, setAfterFilterCount] = useState(0)
   const [selected, setSelected] = useState(new Set())
   const [sortCol, setSortCol] = useState('views')
   const [sortDir, setSortDir] = useState('desc')
@@ -40,7 +42,6 @@ export function ChannelAnalysis() {
 
   function log(msg, type = 'info') { setFetchLog(msg); setFetchLogType(type) }
 
-  // Convert time input to months for the API
   function toMonths() {
     const v = parseFloat(timeValue) || 1
     if (timeUnit === 'days') return Math.max(1, Math.ceil(v / 30))
@@ -60,16 +61,18 @@ export function ChannelAnalysis() {
       const result = await fetchChannel(channelURL.trim(), months)
       const minLen = parseFloat(minLength) || 0
       const filtered = result.videos.filter(v => v.length >= minLen)
+      // totalFetched = all videos from API in period (pre-filter)
+      // afterFilterCount = videos remaining after min-length filter
       setChannelInfo(result.channelInfo)
+      setAfterFilterCount(filtered.length)
       setVideos(filtered)
-      log(`✓ ${filtered.length} videos fetched. ${filtered.filter(v => v.qualifies).length} qualify.`, 'ok')
+      log(`✓ ${result.channelInfo.totalFetched} in period → ${filtered.length} after filter. ${filtered.filter(v => v.qualifies).length} qualify.`, 'ok')
     } catch (e) {
       log('✗ ' + e.message, 'err')
     }
     setFetching(false)
   }
 
-  // Column resize
   const startResize = useCallback((col, e) => {
     e.preventDefault()
     const startX = e.clientX
@@ -90,7 +93,6 @@ export function ChannelAnalysis() {
     window.addEventListener('mouseup', onUp)
   }, [colWidths])
 
-  // Sort + filter
   const rows = useMemo(() => {
     let r = [...videos]
     if (filterQual === 'yes') r = r.filter(v => v.qualifies)
@@ -146,6 +148,7 @@ export function ChannelAnalysis() {
     if (confirm('Clear all channel results?')) {
       setVideos([])
       setChannelInfo(null)
+      setAfterFilterCount(0)
       setSelected(new Set())
       log('// Results cleared', 'info')
     }
@@ -186,7 +189,6 @@ export function ChannelAnalysis() {
         className="flex-shrink-0 flex-grow-0 border-r border-border flex flex-col transition-all duration-200"
         style={{ width: leftCollapsed ? 0 : PANEL_WIDTH, minWidth: leftCollapsed ? 0 : PANEL_WIDTH, maxWidth: PANEL_WIDTH, overflow: 'hidden', position: 'relative' }}
       >
-        {/* HEADER */}
         <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between"
           style={{ width: PANEL_WIDTH }}>
           <div className="min-w-0 overflow-hidden">
@@ -203,7 +205,6 @@ export function ChannelAnalysis() {
         <ScrollArea className="flex-1" style={{ width: PANEL_WIDTH }}>
           <div style={{ width: PANEL_WIDTH, boxSizing: 'border-box' }} className="p-3 flex flex-col gap-3">
 
-            {/* CHANNEL INPUT */}
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">⚡ Channel Fetch</p>
@@ -212,27 +213,17 @@ export function ChannelAnalysis() {
 
                 <div className="flex flex-col gap-1">
                   <Label>Channel URL or Handle</Label>
-                  <Input
-                    value={channelURL}
-                    onChange={e => setChannelURL(e.target.value)}
+                  <Input value={channelURL} onChange={e => setChannelURL(e.target.value)}
                     placeholder="@channelname or youtube.com/channel/UC..."
-                    className="w-full text-[10px]"
-                  />
+                    className="w-full text-[10px]" />
                   <p className="text-[9px] text-muted-foreground">Accepts @handle, /channel/UCxxx, or bare channel ID</p>
                 </div>
 
-                {/* TIME RANGE */}
                 <div className="flex flex-col gap-1">
                   <Label>Time Range</Label>
                   <div className="flex gap-2">
-                    <Input
-                      value={timeValue}
-                      onChange={e => setTimeValue(e.target.value)}
-                      placeholder="12"
-                      className="flex-1 min-w-0 text-[10px]"
-                      type="number"
-                      min="1"
-                    />
+                    <Input value={timeValue} onChange={e => setTimeValue(e.target.value)}
+                      placeholder="12" className="flex-1 min-w-0 text-[10px]" type="number" min="1" />
                     <Select value={timeUnit} onValueChange={setTimeUnit}>
                       <SelectTrigger className="text-[10px] w-[90px] flex-shrink-0"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -244,39 +235,29 @@ export function ChannelAnalysis() {
                   </div>
                 </div>
 
-                {/* MIN LENGTH */}
                 <div className="flex flex-col gap-1">
                   <Label>Minimum Video Length (min)</Label>
-                  <Input
-                    value={minLength}
-                    onChange={e => setMinLength(e.target.value)}
-                    placeholder="7"
-                    className="w-full text-[10px]"
-                    type="number"
-                    min="0"
-                  />
+                  <Input value={minLength} onChange={e => setMinLength(e.target.value)}
+                    placeholder="7" className="w-full text-[10px]" type="number" min="0" />
                 </div>
 
-                <Button
-                  className="w-full text-xs"
-                  onClick={handleFetch}
-                  disabled={fetching || !channelURL.trim()}
-                >
+                <Button className="w-full text-xs" onClick={handleFetch}
+                  disabled={fetching || !channelURL.trim()}>
                   {fetching ? 'Fetching...' : 'Fetch Channel'}
                 </Button>
 
-                {/* STATUS LOG */}
-                <div
-                  className={`p-2 bg-background border border-border text-[10px] font-mono min-h-[28px] break-all ${logColor}`}
-                  style={{ width: '100%', boxSizing: 'border-box', overflowWrap: 'break-word' }}
-                >
+                <div className={`p-2 bg-background border border-border text-[10px] font-mono min-h-[28px] break-all ${logColor}`}
+                  style={{ width: '100%', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
                   {fetchLog}
                 </div>
 
               </div>
             </div>
 
-            {/* CHANNEL STATS — shown after fetch */}
+            {/* CHANNEL STATS
+                totalFetched = all videos from API in the time period (before min-length filter)
+                afterFilterCount = videos shown in the table (after min-length filter)
+            */}
             {channelInfo && (
               <div className="border border-border" style={{ width: '100%', boxSizing: 'border-box' }}>
                 <div className="px-3 py-2 bg-card border-b border-border">
@@ -285,7 +266,8 @@ export function ChannelAnalysis() {
                 <div className="p-3 grid grid-cols-2 gap-2">
                   {[
                     ['Subscribers', channelInfo.subs ? channelInfo.subs + 'K' : '—'],
-                    ['Videos Fetched', channelInfo.totalFetched],
+                    ['Total in Period', channelInfo.totalFetched],
+                    ['After Filter', afterFilterCount],
                     ['Channel Median', fmtNum(channelInfo.chMedian)],
                     ['Qualified', channelInfo.qualified],
                   ].map(([label, value]) => (
@@ -302,21 +284,16 @@ export function ChannelAnalysis() {
         </ScrollArea>
       </div>
 
-      {/* EXPAND BUTTON */}
       {leftCollapsed && (
-        <button
-          onClick={() => setLeftCollapsed(false)}
+        <button onClick={() => setLeftCollapsed(false)}
           className="flex-shrink-0 flex items-center justify-center w-6 bg-card border-r border-border text-muted-foreground hover:text-primary transition-colors"
-          title="Expand panel"
-        >
+          title="Expand panel">
           <PanelLeftOpen size={14} />
         </button>
       )}
 
       {/* RIGHT PANEL */}
       <div className="flex flex-col flex-1 overflow-hidden">
-
-        {/* TOOLBAR */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card flex-shrink-0 flex-wrap">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <input type="checkbox" className="accent-primary w-3 h-3 cursor-pointer"
@@ -366,7 +343,6 @@ export function ChannelAnalysis() {
           </div>
         </div>
 
-        {/* TABLE */}
         <div className="flex-1 overflow-auto">
           {rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
