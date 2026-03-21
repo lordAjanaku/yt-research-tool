@@ -35,7 +35,7 @@ function QualifyBadge({ entry }) {
 }
 
 export function OutlierResearch() {
-  const { entries, addEntry, outlierThreshold } = useStore()
+  const { addEntry, outlierThreshold } = useStore()
   const { fetchSingle, fetchMultiURL, fetchKeywordSearch } = useYouTubeAPI()
 
   const [leftCollapsed, setLeftCollapsed] = useState(false)
@@ -77,7 +77,6 @@ export function OutlierResearch() {
     setFetching(true); log('Fetching video...')
     try {
       const v = await fetchSingle(singleURL)
-      if (singleMedian) v.median = singleMedian
       populateForm({
         title: v.title, channel: v.channel, subs: String(v.subs),
         views: String(v.views), length: String(v.length), date: v.date,
@@ -168,20 +167,25 @@ export function OutlierResearch() {
   return (
     <div className="flex flex-1 overflow-hidden">
 
-      {/* LEFT PANEL */}
+      {/* LEFT PANEL — max 400px, overflow hidden to prevent content blowout */}
       <div
         className="flex-shrink-0 border-r border-border flex flex-col transition-all duration-200"
-        style={{ width: leftCollapsed ? 0 : 'clamp(280px, 25vw, 400px)', overflow: leftCollapsed ? 'hidden' : undefined }}
+        style={{
+          width: leftCollapsed ? 0 : 'clamp(280px, 25vw, 400px)',
+          maxWidth: 400,
+          overflow: 'hidden',
+          minWidth: leftCollapsed ? 0 : 280,
+        }}
       >
-        {/* PANEL HEADER with collapse toggle */}
-        <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between">
-          <div>
-            <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Data Entry</p>
-            <p className="text-[10px] text-muted-foreground">Fetch or enter manually</p>
+        {/* HEADER */}
+        <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between min-w-0">
+          <div className="min-w-0">
+            <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary truncate">Data Entry</p>
+            <p className="text-[10px] text-muted-foreground truncate">Fetch or enter manually</p>
           </div>
           <button
             onClick={() => setLeftCollapsed(true)}
-            className="text-muted-foreground hover:text-primary transition-colors p-1"
+            className="text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
             title="Collapse panel"
           >
             <PanelLeftClose size={14} />
@@ -192,49 +196,49 @@ export function OutlierResearch() {
           <div className="p-3 flex flex-col gap-3">
 
             {/* FETCH BOX */}
-            <div className="border border-primary/30 bg-card">
+            <div className="border border-primary/30 bg-card w-full overflow-hidden">
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">⚡ YouTube API Fetch</p>
               </div>
-              <div className="p-3">
-                <Tabs defaultValue="single">
+              <div className="p-3 w-full overflow-hidden">
+                <Tabs defaultValue="single" className="w-full">
                   <TabsList className="w-full mb-3">
                     <TabsTrigger value="single" className="flex-1 text-[10px]">Single</TabsTrigger>
                     <TabsTrigger value="multi" className="flex-1 text-[10px]">Multi-URL</TabsTrigger>
                     <TabsTrigger value="search" className="flex-1 text-[10px]">Search</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="single" className="flex flex-col gap-2">
+                  <TabsContent value="single" className="flex flex-col gap-2 w-full">
                     <Label>Video URL or ID</Label>
-                    <div className="flex gap-1">
-                      <Input value={singleURL} onChange={e => setSingleURL(e.target.value)} placeholder="https://youtube.com/watch?v=..." className="flex-1 text-[10px]" />
+                    <div className="flex gap-1 w-full min-w-0">
+                      <Input value={singleURL} onChange={e => setSingleURL(e.target.value)} placeholder="https://youtube.com/watch?v=..." className="flex-1 text-[10px] min-w-0" />
                       <Button size="sm" onClick={handleFetchSingle} disabled={fetching} className="flex-shrink-0 text-[10px]">Fetch</Button>
                     </div>
                     <Label>Median Views (manual)</Label>
-                    <Input value={singleMedian} onChange={e => setSingleMedian(e.target.value)} placeholder="From search result set" className="text-[10px]" />
+                    <Input value={singleMedian} onChange={e => setSingleMedian(e.target.value)} placeholder="From search result set" className="text-[10px] w-full" />
                   </TabsContent>
 
-                  <TabsContent value="multi" className="flex flex-col gap-2">
+                  <TabsContent value="multi" className="flex flex-col gap-2 w-full">
                     <Label>Paste URLs — one per line</Label>
-                    <Textarea value={multiURLs} onChange={e => setMultiURLs(e.target.value)} placeholder="https://youtube.com/watch?v=abc&#10;https://youtu.be/def" className="text-[10px] min-h-[80px]" />
-                    <div className="flex items-center justify-between">
+                    <Textarea value={multiURLs} onChange={e => setMultiURLs(e.target.value)} placeholder="https://youtube.com/watch?v=abc&#10;https://youtu.be/def" className="text-[10px] min-h-[80px] w-full" />
+                    <div className="flex items-center justify-between w-full">
                       <span className="text-[10px] text-muted-foreground">{multiCount} URL{multiCount !== 1 ? 's' : ''} detected</span>
                       <Button size="sm" onClick={handleFetchMulti} disabled={fetching} className="text-[10px]">Fetch All</Button>
                     </div>
-                    {fetching && <Progress value={progress} className="h-1" />}
+                    {fetching && <Progress value={progress} className="h-1 w-full" />}
                   </TabsContent>
 
-                  <TabsContent value="search" className="flex flex-col gap-2">
+                  <TabsContent value="search" className="flex flex-col gap-2 w-full">
                     <Label>Search Keyword</Label>
-                    <div className="flex gap-1">
-                      <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="e.g. history of money" className="flex-1 text-[10px]" />
-                      <Button size="sm" onClick={handleSearch} disabled={fetching} className="text-[10px]">Go</Button>
+                    <div className="flex gap-1 w-full min-w-0">
+                      <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="e.g. history of money" className="flex-1 text-[10px] min-w-0" />
+                      <Button size="sm" onClick={handleSearch} disabled={fetching} className="text-[10px] flex-shrink-0">Go</Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 w-full">
                       <div>
                         <Label>Published Within</Label>
                         <Select value={searchPeriod} onValueChange={setSearchPeriod}>
-                          <SelectTrigger className="text-[10px] mt-1"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="6">6 months</SelectItem>
                             <SelectItem value="12">12 months</SelectItem>
@@ -245,7 +249,7 @@ export function OutlierResearch() {
                       <div>
                         <Label>Max Results</Label>
                         <Select value={searchMax} onValueChange={setSearchMax}>
-                          <SelectTrigger className="text-[10px] mt-1"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="10">10</SelectItem>
                             <SelectItem value="20">20</SelectItem>
@@ -256,79 +260,80 @@ export function OutlierResearch() {
                   </TabsContent>
                 </Tabs>
 
+                {/* BATCH RESULTS — fully contained, no overflow */}
                 {batchResults.length > 0 && (
-                  <div className="mt-2 flex flex-col gap-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <Label>Results — click to load</Label>
-                      <span className="text-[10px] text-muted-foreground">Median: {fmtNum(batchMedian)}</span>
+                  <div className="mt-2 flex flex-col gap-1 w-full overflow-hidden">
+                    <div className="flex justify-between items-center mb-1 w-full min-w-0">
+                      <Label className="truncate">Results — click to load</Label>
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">Median: {fmtNum(batchMedian)}</span>
                     </div>
-                    <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1">
+                    <div className="max-h-[180px] overflow-y-auto overflow-x-hidden flex flex-col gap-1 w-full">
                       {batchResults.map((v, i) => (
                         <button key={i} onClick={() => loadBatchItem(v)}
-                          className="flex items-center gap-2 p-2 border border-border hover:border-primary text-left bg-background transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-foreground truncate">{v.title}</p>
-                            <p className="text-[9px] text-muted-foreground">{v.channel} · {v.subs}K · {v.length}min</p>
+                          className="flex items-center gap-2 p-2 border border-border hover:border-primary text-left bg-background transition-colors w-full overflow-hidden">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-[10px] text-foreground truncate w-full">{v.title}</p>
+                            <p className="text-[9px] text-muted-foreground truncate">{v.channel} · {v.subs}K · {v.length}min</p>
                           </div>
                           <div className="flex-shrink-0 text-right">
-                            <p className="text-[10px] text-primary">{fmtNum(v.views)} · {v.chMult}x</p>
+                            <p className="text-[10px] text-primary whitespace-nowrap">{fmtNum(v.views)} · {v.chMult}x</p>
                             <p className={`text-[9px] font-head font-bold ${v.qualifies ? 'text-green-400' : 'text-destructive'}`}>{v.qualifies ? '✓' : '✗'}</p>
                           </div>
                         </button>
                       ))}
                     </div>
-                    <div className="flex gap-1 mt-1">
+                    <div className="flex gap-1 mt-1 w-full">
                       <Button size="sm" variant="outline" className="flex-1 text-[10px]" onClick={() => autoLog(batchResults.filter(v => v.qualifies))}>Log Qualified</Button>
                       <Button size="sm" variant="outline" className="flex-1 text-[10px]" onClick={() => autoLog(batchResults)}>Log All</Button>
                     </div>
                   </div>
                 )}
 
-                <div className={`mt-2 p-2 bg-background border border-border text-[10px] font-mono min-h-[28px] ${logColor}`}>{fetchLog}</div>
+                <div className={`mt-2 p-2 bg-background border border-border text-[10px] font-mono min-h-[28px] w-full overflow-hidden break-words ${logColor}`}>{fetchLog}</div>
               </div>
             </div>
 
             {/* SECTION 01 */}
-            <div className="border border-border">
+            <div className="border border-border w-full">
               <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1">01</span>
+                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">01</span>
                 <span className="text-xs text-foreground">Search Context</span>
               </div>
               <div className="p-3 flex flex-col gap-2">
                 <Label>Search Term Used</Label>
-                <Input value={form.search} onChange={e => setForm(f => ({...f, search: e.target.value}))} placeholder="e.g. history of money systems" className="text-[10px]" />
+                <Input value={form.search} onChange={e => setForm(f => ({...f, search: e.target.value}))} placeholder="e.g. history of money systems" className="text-[10px] w-full" />
                 <Label>Median Views of Search Set</Label>
-                <Input value={form.median} onChange={e => setForm(f => ({...f, median: e.target.value}))} placeholder="e.g. 45000" className="text-[10px]" />
+                <Input value={form.median} onChange={e => setForm(f => ({...f, median: e.target.value}))} placeholder="e.g. 45000" className="text-[10px] w-full" />
               </div>
             </div>
 
             {/* SECTION 02 */}
-            <div className="border border-border">
+            <div className="border border-border w-full">
               <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1">02</span>
+                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">02</span>
                 <span className="text-xs text-foreground">Video Metadata</span>
               </div>
               <div className="p-3 flex flex-col gap-2">
                 <Label>Video Title</Label>
-                <Input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Full title" className="text-[10px]" />
+                <Input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Full title" className="text-[10px] w-full" />
                 <div className="grid grid-cols-2 gap-2">
-                  <div><Label>Channel Name</Label><Input value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))} placeholder="Channel" className="text-[10px] mt-1" /></div>
-                  <div><Label>Subscribers (K)</Label><Input value={form.subs} onChange={e => setForm(f => ({...f, subs: e.target.value}))} placeholder="e.g. 85" className="text-[10px] mt-1" /></div>
+                  <div><Label>Channel Name</Label><Input value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))} placeholder="Channel" className="text-[10px] mt-1 w-full" /></div>
+                  <div><Label>Subscribers (K)</Label><Input value={form.subs} onChange={e => setForm(f => ({...f, subs: e.target.value}))} placeholder="e.g. 85" className="text-[10px] mt-1 w-full" /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div><Label>Views</Label><Input value={form.views} onChange={e => setForm(f => ({...f, views: e.target.value}))} placeholder="380000" className="text-[10px] mt-1" /></div>
-                  <div><Label>Length (min)</Label><Input value={form.length} onChange={e => setForm(f => ({...f, length: e.target.value}))} placeholder="18" className="text-[10px] mt-1" /></div>
-                  <div><Label>Upload Date</Label><Input type="date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))} className="text-[10px] mt-1" /></div>
+                  <div><Label>Views</Label><Input value={form.views} onChange={e => setForm(f => ({...f, views: e.target.value}))} placeholder="380000" className="text-[10px] mt-1 w-full" /></div>
+                  <div><Label>Length (min)</Label><Input value={form.length} onChange={e => setForm(f => ({...f, length: e.target.value}))} placeholder="18" className="text-[10px] mt-1 w-full" /></div>
+                  <div><Label>Upload Date</Label><Input type="date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))} className="text-[10px] mt-1 w-full" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label>Channel Median Views</Label>
-                    <Input value={form.chMedian} onChange={e => setForm(f => ({...f, chMedian: e.target.value}))} placeholder="Channel avg" className="text-[10px] mt-1" />
+                    <Label>Channel Median</Label>
+                    <Input value={form.chMedian} onChange={e => setForm(f => ({...f, chMedian: e.target.value}))} placeholder="Channel avg" className="text-[10px] mt-1 w-full" />
                   </div>
                   <div>
                     <Label>Comment Clustering</Label>
                     <Select value={form.comments} onValueChange={v => setForm(f => ({...f, comments: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{COMMENTS.map(c => <SelectItem key={c} value={c} className="text-[10px]">{c === 'No' ? 'No (organic)' : 'Yes (ext. pushed)'}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
@@ -348,9 +353,9 @@ export function OutlierResearch() {
             </div>
 
             {/* SECTION 03 */}
-            <div className="border border-border">
+            <div className="border border-border w-full">
               <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1">03</span>
+                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">03</span>
                 <span className="text-xs text-foreground">Packaging Analysis</span>
               </div>
               <div className="p-3 flex flex-col gap-2">
@@ -358,27 +363,27 @@ export function OutlierResearch() {
                   <div>
                     <Label>Title Type</Label>
                     <Select value={form.titleType} onValueChange={v => setForm(f => ({...f, titleType: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{TITLE_TYPES.map(t => <SelectItem key={t} value={t} className="text-[10px]">{t}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>Emotional Trigger</Label>
                     <Select value={form.emotion} onValueChange={v => setForm(f => ({...f, emotion: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{EMOTIONS.map(e => <SelectItem key={e} value={e} className="text-[10px]">{e}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
                 <Label>Thumbnail Description</Label>
-                <Textarea value={form.thumbnail} onChange={e => setForm(f => ({...f, thumbnail: e.target.value}))} placeholder="Elements, text, faces, contrast, emotion..." className="text-[10px]" />
+                <Textarea value={form.thumbnail} onChange={e => setForm(f => ({...f, thumbnail: e.target.value}))} placeholder="Elements, text, faces, contrast, emotion..." className="text-[10px] w-full" />
               </div>
             </div>
 
             {/* SECTION 04 */}
-            <div className="border border-border">
+            <div className="border border-border w-full">
               <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1">04</span>
+                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">04</span>
                 <span className="text-xs text-foreground">Content Analysis</span>
               </div>
               <div className="p-3 flex flex-col gap-2">
@@ -386,22 +391,22 @@ export function OutlierResearch() {
                   <div>
                     <Label>Hook Structure</Label>
                     <Select value={form.hook} onValueChange={v => setForm(f => ({...f, hook: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{HOOKS.map(h => <SelectItem key={h} value={h} className="text-[10px]">{h}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>Pacing</Label>
                     <Select value={form.pacing} onValueChange={v => setForm(f => ({...f, pacing: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{PACING.map(p => <SelectItem key={p} value={p} className="text-[10px]">{p}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
                 <Label>Narrative Arc</Label>
-                <Textarea value={form.arc} onChange={e => setForm(f => ({...f, arc: e.target.value}))} placeholder="Problem → Mechanism → Consequence → Modern connection..." className="text-[10px]" />
+                <Textarea value={form.arc} onChange={e => setForm(f => ({...f, arc: e.target.value}))} placeholder="Problem → Mechanism → Consequence → Modern connection..." className="text-[10px] w-full" />
                 <Label>Key Insight</Label>
-                <Textarea value={form.insight} onChange={e => setForm(f => ({...f, insight: e.target.value}))} placeholder="Why did this video outperform?" className="text-[10px]" />
+                <Textarea value={form.insight} onChange={e => setForm(f => ({...f, insight: e.target.value}))} placeholder="Why did this video outperform?" className="text-[10px] w-full" />
               </div>
             </div>
 
@@ -414,7 +419,7 @@ export function OutlierResearch() {
         </div>
       </div>
 
-      {/* EXPAND BUTTON — shown when left panel is collapsed */}
+      {/* EXPAND BUTTON — shown when collapsed */}
       {leftCollapsed && (
         <button
           onClick={() => setLeftCollapsed(false)}
