@@ -15,7 +15,7 @@ const DEFAULT_WIDTHS = {
 }
 
 export function ResearchTable() {
-  const { entries, deleteEntry, deleteEntries, removeDuplicates, importEntries } = useStore()
+  const { entries, deleteEntry, deleteEntries, clearEntries, removeDuplicates, importEntries } = useStore()
   const [selected, setSelected] = useState(new Set())
   const [sortCol, setSortCol] = useState('index')
   const [sortDir, setSortDir] = useState('desc')
@@ -85,6 +85,14 @@ export function ResearchTable() {
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
+  function handleClearAll() {
+    if (!entries.length) return
+    if (confirm(`Clear all ${entries.length} entries? This cannot be undone.`)) {
+      clearEntries()
+      setSelected(new Set())
+    }
+  }
+
   function handleExport(format) {
     let data = entries
     if (exportMode === 'qualified') data = entries.filter(e => e.qualifies)
@@ -132,7 +140,6 @@ export function ResearchTable() {
     )
   }
 
-  // Row background — alternating shades, overridden by selected state
   function rowBg(e, i) {
     if (selected.has(e.id)) return 'bg-primary/5'
     return i % 2 === 0 ? 'bg-background' : 'bg-muted/20'
@@ -187,6 +194,11 @@ export function ResearchTable() {
           {dupeCount > 0 && (
             <Button size="sm" variant="destructive" className="text-[10px] h-6 px-2" onClick={removeDuplicates}>
               {dupeCount} Dupes
+            </Button>
+          )}
+          {entries.length > 0 && (
+            <Button size="sm" variant="destructive" className="text-[10px] h-6 px-2" onClick={handleClearAll}>
+              Clear All
             </Button>
           )}
           <Select value={exportMode} onValueChange={setExportMode}>
