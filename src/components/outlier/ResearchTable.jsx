@@ -1,13 +1,18 @@
-import { useState, useMemo } from 'react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/store/useStore'
-import { fmtNum, parseNum } from '@/utils/numbers'
+import { fmtNum } from '@/utils/numbers'
 import { toCSV, downloadFile } from '@/utils/exportData'
 
 const TITLE_TYPES = ['Tension','Mechanism','Contrarian','Stakes','Historical Revelation','Curiosity Gap']
+
+const DEFAULT_WIDTHS = {
+  cb: 32, idx: 40, title: 200, channel: 120, subs: 70,
+  views: 80, chMult: 70, qual: 60, titleType: 130,
+  emotion: 90, hook: 110, pacing: 70, actions: 60
+}
 
 export function ResearchTable() {
   const { entries, deleteEntry, deleteEntries, removeDuplicates, importEntries } = useStore()
@@ -17,7 +22,32 @@ export function ResearchTable() {
   const [filterQual, setFilterQual] = useState('all')
   const [filterType, setFilterType] = useState('all')
   const [exportMode, setExportMode] = useState('all')
+  const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS)
+  const resizing = useRef(null)
 
+  // ── COLUMN RESIZE ──
+  const startResize = useCallback((col, e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = colWidths[col]
+    resizing.current = { col, startX, startW }
+
+    function onMove(ev) {
+      if (!resizing.current) return
+      const delta = ev.clientX - resizing.current.startX
+      const newW = Math.max(40, resizing.current.startW + delta)
+      setColWidths(w => ({ ...w, [resizing.current.col]: newW }))
+    }
+    function onUp() {
+      resizing.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [colWidths])
+
+  // ── DUPLICATE COUNT ──
   const dupeCount = useMemo(() => {
     const seen = new Set()
     let count = 0
@@ -29,6 +59,7 @@ export function ResearchTable() {
     return count
   }, [entries])
 
+  // ── FILTERED + SORTED ROWS ──
   const rows = useMemo(() => {
     let r = entries.map((e, i) => ({ ...e, _idx: i }))
     if (filterQual === 'yes') r = r.filter(e => e.qualifies)
@@ -39,7 +70,7 @@ export function ResearchTable() {
       if (sortCol === 'index') { av = a._idx; bv = b._idx }
       if (sortCol === 'qualifies') { av = a.qualifies ? 1 : 0; bv = b.qualifies ? 1 : 0 }
       if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
-      return sortDir === 'asc' ? av - bv : bv - av
+      return sortDir === 'asc' ? (av - bv) : (bv - av)
     })
     return r
   }, [entries, sortCol, sortDir, filterQual, filterType])
@@ -62,7 +93,7 @@ export function ResearchTable() {
     let data = entries
     if (exportMode === 'qualified') data = entries.filter(e => e.qualifies)
     if (exportMode === 'filtered') data = rows
-    const date = new Date().toISOString().slice(0,10)
+    const date = new Date().toISOString().slice(0, 10)
     if (format === 'json') downloadFile(JSON.stringify(data, null, 2), `outlier_${date}.json`, 'application/json')
     else downloadFile(toCSV(data), `outlier_${date}.csv`, 'text/csv')
   }
@@ -85,25 +116,43 @@ export function ResearchTable() {
     input.click()
   }
 
-  const Th = ({ col, label, style }) => (
-    <th onClick={() => toggleSort(col)}
-      className={`px-2 py-2 text-left text-[10px] font-head font-semibold tracking-widest uppercase cursor-pointer select-none whitespace-nowrap hover:text-primary transition-colors ${sortCol === col ? 'text-primary' : 'text-muted-foreground'}`}
-      style={style}>
-      {label}{sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
-    </th>
-  )
+  // ── RESIZABLE TH ──
+  function Th({ col, label, align = 'left' }) {
+    const w = colWidths[col]
+    const active = sortCol === col
+    return (
+      <th
+        style={{ width: w, minWidth: w, maxWidth: w, position: 'relative', userSelect: 'none' }}
+        className={`px-2 py-2 text-[10px] font-head font-semibold tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors ${active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+        onClick={() => toggleSort(col)}
+      >
+        <span>{label}{active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</span>
+        {/* RESIZE HANDLE */}
+        <span
+          onMouseDown={e => { e.stopPropagation(); startResize(col, e) }}
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', right: 0, top: 0, bottom: 0,
+            width: 6, cursor: 'col-resize', zIndex: 2,
+          }}
+          className="hover:bg-primary/40 transition-colors"
+        />
+      </th>
+    )
+  }
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+
       {/* TOOLBAR */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card flex-shrink-0 flex-wrap">
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <input type="checkbox" className="accent-primary w-3 h-3 cursor-pointer"
             checked={rows.length > 0 && rows.every(r => selected.has(r.id))}
             onChange={toggleAll} />
           {selected.size > 0 && (
             <>
-              <span className="text-[10px] text-primary">{selected.size} selected</span>
+              <span className="text-[10px] text-primary whitespace-nowrap">{selected.size} selected</span>
               <Button size="sm" variant="destructive" className="text-[10px] h-6 px-2"
                 onClick={() => { deleteEntries(selected); setSelected(new Set()) }}>Delete</Button>
             </>
@@ -144,7 +193,7 @@ export function ResearchTable() {
             </Button>
           )}
           <Select value={exportMode} onValueChange={setExportMode}>
-            <SelectTrigger className="h-6 text-[10px] w-[110px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-6 text-[10px] w-[120px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-[10px]">Export All</SelectItem>
               <SelectItem value="qualified" className="text-[10px]">Qualified Only</SelectItem>
@@ -165,44 +214,50 @@ export function ResearchTable() {
             <span className="text-xs tracking-widest">NO ENTRIES — FETCH OR ENTER DATA</span>
           </div>
         ) : (
-          <table className="w-full border-collapse" style={{ minWidth: 900 }}>
+          <table className="border-collapse" style={{ tableLayout: 'fixed', width: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
             <thead className="sticky top-0 z-10">
               <tr className="bg-card border-b border-border">
-                <th className="px-2 py-2 w-8"><input type="checkbox" className="accent-primary w-3 h-3" checked={rows.every(r => selected.has(r.id))} onChange={toggleAll} /></th>
-                <Th col="index" label="#" />
-                <Th col="title" label="Title" style={{ maxWidth: 180 }} />
+                <th style={{ width: colWidths.cb }} className="px-2 py-2">
+                  <input type="checkbox" className="accent-primary w-3 h-3"
+                    checked={rows.length > 0 && rows.every(r => selected.has(r.id))}
+                    onChange={toggleAll} />
+                </th>
+                <Th col="idx" label="#" />
+                <Th col="title" label="Title" />
                 <Th col="channel" label="Channel" />
                 <Th col="subs" label="Subs(K)" />
                 <Th col="views" label="Views" />
                 <Th col="chMult" label="Ch.×" />
-                <Th col="qualifies" label="Qual" />
+                <Th col="qual" label="Qual" />
                 <Th col="titleType" label="Title Type" />
                 <Th col="emotion" label="Emotion" />
                 <Th col="hook" label="Hook" />
                 <Th col="pacing" label="Pacing" />
-                <th className="px-2 py-2 w-16"></th>
+                <th style={{ width: colWidths.actions }} className="px-2 py-2" />
               </tr>
             </thead>
             <tbody>
-              {rows.map((e, i) => (
+              {rows.map(e => (
                 <tr key={e.id} className={`border-b border-border hover:bg-muted/30 transition-colors ${selected.has(e.id) ? 'bg-primary/5' : ''}`}>
-                  <td className="px-2 py-1.5"><input type="checkbox" className="accent-primary w-3 h-3" checked={selected.has(e.id)} onChange={() => toggleRow(e.id)} /></td>
-                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground">{e._idx + 1}</td>
-                  <td className="px-2 py-1.5 text-[10px] text-foreground" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.title}>{e.title}</td>
-                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground" style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.channel || '—'}</td>
-                  <td className="px-2 py-1.5 text-[10px]">{e.subs || '—'}</td>
-                  <td className="px-2 py-1.5 text-[10px]">{fmtNum(e.views)}</td>
-                  <td className="px-2 py-1.5 text-[10px]">
+                  <td style={{ width: colWidths.cb }} className="px-2 py-1.5">
+                    <input type="checkbox" className="accent-primary w-3 h-3" checked={selected.has(e.id)} onChange={() => toggleRow(e.id)} />
+                  </td>
+                  <td style={{ width: colWidths.idx }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e._idx + 1}</td>
+                  <td style={{ width: colWidths.title, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="px-2 py-1.5 text-[10px] text-foreground" title={e.title}>{e.title}</td>
+                  <td style={{ width: colWidths.channel, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.channel || '—'}</td>
+                  <td style={{ width: colWidths.subs }} className="px-2 py-1.5 text-[10px]">{e.subs || '—'}</td>
+                  <td style={{ width: colWidths.views }} className="px-2 py-1.5 text-[10px]">{fmtNum(e.views)}</td>
+                  <td style={{ width: colWidths.chMult }} className="px-2 py-1.5 text-[10px]">
                     <span className={e.chMult >= 6 ? 'text-yellow-300 font-bold' : e.chMult >= 4 ? 'text-primary font-bold' : 'text-muted-foreground'}>{e.chMult}x</span>
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td style={{ width: colWidths.qual }} className="px-2 py-1.5">
                     <Badge variant={e.qualifies ? 'success' : 'destructive'} className="text-[9px]">{e.qualifies ? 'YES' : 'NO'}</Badge>
                   </td>
-                  <td className="px-2 py-1.5 text-[10px] text-primary">{e.titleType || '—'}</td>
-                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.emotion || '—'}</td>
-                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.hook || '—'}</td>
-                  <td className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.pacing || '—'}</td>
-                  <td className="px-2 py-1.5">
+                  <td style={{ width: colWidths.titleType }} className="px-2 py-1.5 text-[10px] text-primary">{e.titleType || '—'}</td>
+                  <td style={{ width: colWidths.emotion }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.emotion || '—'}</td>
+                  <td style={{ width: colWidths.hook }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.hook || '—'}</td>
+                  <td style={{ width: colWidths.pacing }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.pacing || '—'}</td>
+                  <td style={{ width: colWidths.actions }} className="px-2 py-1.5">
                     <button onClick={() => deleteEntry(e.id)} className="text-muted-foreground hover:text-destructive text-xs transition-colors px-1">✕</button>
                   </td>
                 </tr>
