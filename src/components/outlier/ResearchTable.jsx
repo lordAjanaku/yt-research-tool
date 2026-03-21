@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useStore } from '@/store/useStore'
 import { fmtNum } from '@/utils/numbers'
 import { toCSV, downloadFile } from '@/utils/exportData'
+import { parseCSV } from '@/utils/csvParser'
 
 const TITLE_TYPES = ['Tension','Mechanism','Contrarian','Stakes','Historical Revelation','Curiosity Gap']
 
@@ -102,19 +103,41 @@ export function ResearchTable() {
     else downloadFile(toCSV(data), `outlier_${date}.csv`, 'text/csv')
   }
 
+  // Import accepts both JSON and CSV
   function handleImport() {
     const input = document.createElement('input')
-    input.type = 'file'; input.accept = '.json'
+    input.type = 'file'
+    input.accept = '.json,.csv'
     input.onchange = e => {
+      const file = e.target.files[0]
+      if (!file) return
       const r = new FileReader()
       r.onload = ev => {
         try {
-          const d = JSON.parse(ev.target.result)
-          if (!Array.isArray(d)) throw new Error()
-          if (confirm(`Import ${d.length} entries? Replaces current data.`)) importEntries(d)
-        } catch { alert('Invalid JSON') }
+          let data
+          if (file.name.endsWith('.csv')) {
+            data = parseCSV(ev.target.result)
+            // coerce numeric fields from CSV strings
+            data = data.map(row => ({
+              ...row,
+              subs: parseFloat(row.subs) || 0,
+              views: parseFloat(row.views) || 0,
+              length: parseFloat(row.length) || 0,
+              chMult: parseFloat(row.chMult) || 0,
+              chMedian: parseFloat(row.chMedian) || 0,
+              median: parseFloat(row.median) || 0,
+              qualifies: row.qualifies === 'true' || row.qualifies === true,
+            }))
+          } else {
+            data = JSON.parse(ev.target.result)
+          }
+          if (!Array.isArray(data)) throw new Error('Expected an array')
+          if (confirm(`Import ${data.length} entries? Replaces current data.`)) importEntries(data)
+        } catch (err) {
+          alert('Import failed: ' + err.message)
+        }
       }
-      r.readAsText(e.target.files[0])
+      r.readAsText(file)
       e.target.value = ''
     }
     input.click()
@@ -211,6 +234,7 @@ export function ResearchTable() {
           </Select>
           <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => handleExport('json')}>JSON</Button>
           <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => handleExport('csv')}>CSV</Button>
+          {/* Import now accepts both .json and .csv */}
           <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={handleImport}>Import</Button>
         </div>
       </div>
