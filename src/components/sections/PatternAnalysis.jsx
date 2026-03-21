@@ -27,7 +27,8 @@ const AI_PROVIDERS = [
 const ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+  // gemini-2.0-flash — current stable model, replaces deprecated gemini-pro
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   groq: 'https://api.groq.com/openai/v1/chat/completions',
 }
@@ -175,7 +176,6 @@ export function PatternAnalysis() {
     setCommentRunning(false)
   }
 
-  // ── EXPORT HELPERS ──
   const date = new Date().toISOString().slice(0, 10)
 
   function exportComments(format) {
@@ -203,7 +203,6 @@ export function PatternAnalysis() {
   return (
     <div className="flex flex-1 overflow-hidden">
 
-      {/* LEFT PANEL */}
       <div className="flex-shrink-0 flex-grow-0 border-r border-border flex flex-col transition-all duration-200"
         style={{ width: leftCollapsed ? 0 : PANEL_WIDTH, minWidth: leftCollapsed ? 0 : PANEL_WIDTH, maxWidth: PANEL_WIDTH, overflow: 'hidden', position: 'relative' }}>
         <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between" style={{ width: PANEL_WIDTH }}>
@@ -219,7 +218,6 @@ export function PatternAnalysis() {
         <ScrollArea className="flex-1" style={{ width: PANEL_WIDTH }}>
           <div style={{ width: PANEL_WIDTH, boxSizing: 'border-box' }} className="p-3 flex flex-col gap-3">
 
-            {/* AI STATUS */}
             <div className="border border-border p-3 flex flex-col gap-1" style={{ width: '100%', boxSizing: 'border-box' }}>
               <p className="font-head font-semibold text-[10px] tracking-widest uppercase text-muted-foreground">AI Provider</p>
               <div className="flex items-center justify-between">
@@ -230,7 +228,6 @@ export function PatternAnalysis() {
               {(!aiApiKey || !ytApiKey) && <p className="text-[9px] text-muted-foreground mt-1">Configure keys in API Keys settings.</p>}
             </div>
 
-            {/* MODE 1 */}
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 1 — Outlier Patterns</p>
@@ -275,7 +272,6 @@ export function PatternAnalysis() {
               </div>
             </div>
 
-            {/* MODE 2 */}
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 2 — Comment Analysis</p>
@@ -343,7 +339,6 @@ export function PatternAnalysis() {
         </button>
       )}
 
-      {/* RIGHT PANEL */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
           <TabsList className="border-b border-border flex-shrink-0 px-3">
@@ -352,7 +347,6 @@ export function PatternAnalysis() {
             {allComments.length > 0 && <TabsTrigger value="commentsraw" className="text-[10px]">Raw Comments ({allComments.length})</TabsTrigger>}
           </TabsList>
 
-          {/* OUTLIER TAB */}
           <TabsContent value="outlier" className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
@@ -362,11 +356,8 @@ export function PatternAnalysis() {
                     sub={outlierRunning ? 'Sending data to AI, please wait' : 'Configure data source in left panel and run Outlier Analysis'} />
                 ) : (
                   <>
-                    {/* EXPORT ROW */}
                     <div className="flex justify-end">
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>
-                        Export Result JSON
-                      </Button>
+                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>Export Result JSON</Button>
                     </div>
                     <ResultSection title="Dominant Patterns">
                       <div className="grid grid-cols-2 gap-2">
@@ -412,7 +403,6 @@ export function PatternAnalysis() {
             </ScrollArea>
           </TabsContent>
 
-          {/* COMMENT ANALYSIS TAB */}
           <TabsContent value="comments" className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
@@ -422,11 +412,8 @@ export function PatternAnalysis() {
                     sub={commentRunning ? 'Sending comments to AI, please wait' : 'Fetch comments using the left panel then run AI Analysis'} />
                 ) : (
                   <>
-                    {/* EXPORT ROW */}
                     <div className="flex justify-end">
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>
-                        Export Result JSON
-                      </Button>
+                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>Export Result JSON</Button>
                     </div>
                     <ResultSection title="Dominant Audience Emotion">
                       <div className="border border-primary/40 bg-primary/5 p-3 inline-block">
@@ -457,7 +444,6 @@ export function PatternAnalysis() {
             </ScrollArea>
           </TabsContent>
 
-          {/* RAW COMMENTS TAB */}
           {allComments.length > 0 && (
             <TabsContent value="commentsraw" className="flex-1 overflow-hidden">
               <div className="flex flex-col h-full overflow-hidden">
