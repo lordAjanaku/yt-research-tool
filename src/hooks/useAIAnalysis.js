@@ -4,7 +4,7 @@ import { buildSystemPrompt, buildUserMessage } from '../utils/aiPrompt'
 const ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   groq: 'https://api.groq.com/openai/v1/chat/completions',
 }
