@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── DARK AMBER (default) ── */
+  .dark {
+    --background: 240 3% 4%;
+    --foreground: 60 5% 78%;
+    --card: 240 4% 7%;
+    --card-foreground: 60 5% 78%;
+    --popover: 240 4% 7%;
+    --popover-foreground: 60 5% 78%;
+    --primary: 38 82% 42%;
+    --primary-foreground: 240 3% 4%;
+    --secondary: 240 4% 10%;
+    --secondary-foreground: 60 5% 78%;
+    --muted: 240 4% 10%;
+    --muted-foreground: 60 3% 33%;
+    --accent: 38 82% 50%;
+    --accent-foreground: 240 3% 4%;
+    --destructive: 0 63% 47%;
+    --destructive-foreground: 60 5% 78%;
+    --border: 240 4% 12%;
+    --input: 240 4% 12%;
+    --ring: 38 82% 42%;
+    --radius: 0.375rem;
+  }
+
+  /* ── DARK BLUE (slate) ── */
+  .theme-slate {
+    --background: 220 15% 5%;
+    --foreground: 210 20% 80%;
+    --card: 220 13% 8%;
+    --card-foreground: 210 20% 80%;
+    --primary: 210 80% 45%;
+    --primary-foreground: 220 15% 5%;
+    --secondary: 220 13% 11%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 220 13% 11%;
+    --muted-foreground: 210 10% 40%;
+    --accent: 210 80% 55%;
+    --accent-foreground: 220 15% 5%;
+    --destructive: 0 63% 47%;
+    --destructive-foreground: 210 20% 80%;
+    --border: 220 13% 14%;
+    --input: 220 13% 14%;
+    --ring: 210 80% 45%;
+    --radius: 0.375rem;
+  }
+
+  /* ── DARK GREEN (terminal) ── */
+  .theme-terminal {
+    --background: 140 10% 4%;
+    --foreground: 140 15% 75%;
+    --card: 140 8% 7%;
+    --card-foreground: 140 15% 75%;
+    --primary: 140 60% 35%;
+    --primary-foreground: 140 10% 4%;
+    --secondary: 140 8% 10%;
+    --secondary-foreground: 140 15% 75%;
+    --muted: 140 8% 10%;
+    --muted-foreground: 140 5% 35%;
+    --accent: 140 60% 45%;
+    --accent-foreground: 140 10% 4%;
+    --destructive: 0 63% 47%;
+    --destructive-foreground: 140 15% 75%;
+    --border: 140 8% 13%;
+    --input: 140 8% 13%;
+    --ring: 140 60% 35%;
+    --radius: 0.375rem;
+  }
+
+  /* ── DARK PURPLE (midnight) ── */
+  .theme-midnight {
+    --background: 270 15% 5%;
+    --foreground: 270 10% 78%;
+    --card: 270 12% 8%;
+    --card-foreground: 270 10% 78%;
+    --primary: 270 60% 55%;
+    --primary-foreground: 270 15% 5%;
+    --secondary: 270 12% 11%;
+    --secondary-foreground: 270 10% 78%;
+    --muted: 270 12% 11%;
+    --muted-foreground: 270 5% 38%;
+    --accent: 270 60% 65%;
+    --accent-foreground: 270 15% 5%;
+    --destructive: 0 63% 47%;
+    --destructive-foreground: 270 10% 78%;
+    --border: 270 12% 14%;
+    --input: 270 12% 14%;
+    --ring: 270 60% 55%;
+    --radius: 0.375rem;
+  }
+
+  /* ── LIGHT ── */
+  .theme-light {
+    --background: 40 20% 97%;
+    --foreground: 240 10% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 15%;
+    --primary: 38 82% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 10% 92%;
+    --secondary-foreground: 240 10% 15%;
+    --muted: 40 10% 92%;
+    --muted-foreground: 240 5% 45%;
+    --accent: 38 82% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 10% 85%;
+    --input: 40 10% 85%;
+    --ring: 38 82% 42%;
+    --radius: 0.375rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Share Tech Mono', monospace;
+  }
+}
