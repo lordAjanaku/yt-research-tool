@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +17,7 @@ import {
 } from '@/utils/aiPrompt'
 
 const PANEL_WIDTH = 360
+const MIN_RELIABLE = 8   // minimum entries for reliable pattern extraction
 const AI_PROVIDERS = [
   { value: 'openrouter', label: 'OpenRouter' },
   { value: 'groq', label: 'Groq' },
@@ -27,13 +28,21 @@ const AI_PROVIDERS = [
 const ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
-  // gemini-2.5-flash — latest model
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   groq: 'https://api.groq.com/openai/v1/chat/completions',
 }
 
-// temperature: 0 on all providers — makes output deterministic (same input = same output)
+// Stable cache key from input data — same entries in any order = same key
+function makeCacheKey(entries) {
+  const stable = [...entries]
+    .map(e => `${e.title}|${e.channel}|${e.views}|${e.chMult}|${e.titleType}|${e.emotion}|${e.hook}|${e.pacing}`)
+    .sort()
+    .join('::')
+  return stable
+}
+
+// temperature: 0 — deterministic output (same input = same output)
 async function callAI(provider, apiKey, systemPrompt, userMessage) {
   let raw = ''
   if (provider === 'anthropic') {
@@ -41,11 +50,8 @@ async function callAI(provider, apiKey, systemPrompt, userMessage) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        temperature: 0,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }]
+        model: 'claude-sonnet-4-6', max_tokens: 1500, temperature: 0,
+        system: systemPrompt, messages: [{ role: 'user', content: userMessage }]
       }),
     })
     const d = await r.json()
@@ -70,8 +76,7 @@ async function callAI(provider, apiKey, systemPrompt, userMessage) {
       body: JSON.stringify({
         model: provider === 'groq' ? 'llama-3.3-70b-versatile' : 'openai/gpt-4o-mini',
         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }],
-        max_tokens: 1500,
-        temperature: 0
+        max_tokens: 1500, temperature: 0
       }),
     })
     const d = await r.json()
@@ -119,6 +124,10 @@ export function PatternAnalysis() {
   const [outlierRunning, setOutlierRunning] = useState(false)
   const [outlierResult, setOutlierResult] = useState(null)
   const [outlierError, setOutlierError] = useState('')
+  const [outlierFromCache, setOutlierFromCache] = useState(false)
+  // Cache: { key: string, result: object }
+  const outlierCache = useRef(null)
+
   const [commentURL, setCommentURL] = useState('')
   const [commentMax, setCommentMax] = useState('100')
   const [commentMinLikes, setCommentMinLikes] = useState('0')
@@ -142,6 +151,8 @@ export function PatternAnalysis() {
     return allComments.filter(c => c.likes >= minL)
   }, [allComments, commentMinLikes])
 
+  const belowMinimum = outlierData.length > 0 && outlierData.length < MIN_RELIABLE
+
   function handleCSVUpload(e) {
     const file = e.target.files[0]
     if (!file) return
@@ -154,12 +165,25 @@ export function PatternAnalysis() {
     e.target.value = ''
   }
 
-  async function runOutlierAnalysis() {
+  async function runOutlierAnalysis(forceRefresh = false) {
     if (!outlierData.length) { setOutlierError('No data to analyse.'); return }
     if (!aiApiKey) { setOutlierError('No AI API key configured. Go to API Keys settings.'); return }
-    setOutlierRunning(true); setOutlierError(''); setOutlierResult(null)
-    try { setOutlierResult(await callAI(aiProvider, aiApiKey, buildSystemPrompt(), buildUserMessage(outlierData))) }
-    catch (e) { setOutlierError('Analysis failed: ' + e.message) }
+
+    // Check cache — skip API call if same data and not forcing refresh
+    const cacheKey = makeCacheKey(outlierData)
+    if (!forceRefresh && outlierCache.current?.key === cacheKey) {
+      setOutlierResult(outlierCache.current.result)
+      setOutlierFromCache(true)
+      setOutlierError('')
+      return
+    }
+
+    setOutlierRunning(true); setOutlierError(''); setOutlierResult(null); setOutlierFromCache(false)
+    try {
+      const result = await callAI(aiProvider, aiApiKey, buildSystemPrompt(), buildUserMessage(outlierData))
+      outlierCache.current = { key: cacheKey, result }
+      setOutlierResult(result)
+    } catch (e) { setOutlierError('Analysis failed: ' + e.message) }
     setOutlierRunning(false)
   }
 
@@ -229,6 +253,7 @@ export function PatternAnalysis() {
         <ScrollArea className="flex-1" style={{ width: PANEL_WIDTH }}>
           <div style={{ width: PANEL_WIDTH, boxSizing: 'border-box' }} className="p-3 flex flex-col gap-3">
 
+            {/* AI STATUS */}
             <div className="border border-border p-3 flex flex-col gap-1" style={{ width: '100%', boxSizing: 'border-box' }}>
               <p className="font-head font-semibold text-[10px] tracking-widest uppercase text-muted-foreground">AI Provider</p>
               <div className="flex items-center justify-between">
@@ -239,6 +264,7 @@ export function PatternAnalysis() {
               {(!aiApiKey || !ytApiKey) && <p className="text-[9px] text-muted-foreground mt-1">Configure keys in API Keys settings.</p>}
             </div>
 
+            {/* MODE 1 */}
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 1 — Outlier Patterns</p>
@@ -272,17 +298,30 @@ export function PatternAnalysis() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* SENDING COUNT + LOW SAMPLE WARNING */}
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="text-muted-foreground">Sending to AI:</span>
-                  <span className="text-primary font-bold">{outlierData.length} videos</span>
+                  <span className={`font-bold ${belowMinimum ? 'text-yellow-400' : 'text-primary'}`}>
+                    {outlierData.length} videos
+                  </span>
                 </div>
+                {belowMinimum && (
+                  <div className="border border-yellow-500/40 bg-yellow-500/5 p-2" style={{ width: '100%', boxSizing: 'border-box' }}>
+                    <p className="text-[9px] text-yellow-400 leading-relaxed">
+                      ⚠ Low sample — {outlierData.length} of {MIN_RELIABLE}+ recommended. Patterns from fewer than {MIN_RELIABLE} videos are unreliable. Results may appear confident but are based on insufficient data.
+                    </p>
+                  </div>
+                )}
+
                 {outlierError && <p className="text-[10px] text-destructive break-words">{outlierError}</p>}
-                <Button className="w-full text-xs" onClick={runOutlierAnalysis} disabled={outlierRunning || !outlierData.length}>
+                <Button className="w-full text-xs" onClick={() => runOutlierAnalysis(false)} disabled={outlierRunning || !outlierData.length}>
                   {outlierRunning ? <span className="flex items-center gap-2"><Spinner size={12} /> Analysing...</span> : 'Run Outlier Analysis'}
                 </Button>
               </div>
             </div>
 
+            {/* MODE 2 */}
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 2 — Comment Analysis</p>
@@ -358,6 +397,7 @@ export function PatternAnalysis() {
             {allComments.length > 0 && <TabsTrigger value="commentsraw" className="text-[10px]">Raw Comments ({allComments.length})</TabsTrigger>}
           </TabsList>
 
+          {/* OUTLIER TAB */}
           <TabsContent value="outlier" className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
@@ -367,9 +407,33 @@ export function PatternAnalysis() {
                     sub={outlierRunning ? 'Sending data to AI, please wait' : 'Configure data source in left panel and run Outlier Analysis'} />
                 ) : (
                   <>
-                    <div className="flex justify-end">
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>Export Result JSON</Button>
+                    {/* RESULT HEADER — cache indicator + actions */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        {outlierFromCache && (
+                          <Badge variant="outline" className="text-[9px] text-muted-foreground border-muted-foreground">
+                            Cached result
+                          </Badge>
+                        )}
+                        {belowMinimum && (
+                          <Badge variant="outline" className="text-[9px] text-yellow-400 border-yellow-500/40">
+                            ⚠ Low sample ({outlierData.length}/{MIN_RELIABLE})
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {outlierFromCache && (
+                          <Button size="sm" variant="ghost" className="text-[10px] h-6 px-2 text-muted-foreground hover:text-primary"
+                            onClick={() => runOutlierAnalysis(true)} disabled={outlierRunning}>
+                            Force re-run
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>
+                          Export JSON
+                        </Button>
+                      </div>
                     </div>
+
                     <ResultSection title="Dominant Patterns">
                       <div className="grid grid-cols-2 gap-2">
                         {[['Title Type', outlierResult.dominant_title_type], ['Hook Structure', outlierResult.dominant_hook], ['Emotional Trigger', outlierResult.dominant_emotion], ['Pacing', outlierResult.dominant_pacing]].map(([label, value]) => (
@@ -414,6 +478,7 @@ export function PatternAnalysis() {
             </ScrollArea>
           </TabsContent>
 
+          {/* COMMENT ANALYSIS TAB */}
           <TabsContent value="comments" className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
@@ -424,7 +489,7 @@ export function PatternAnalysis() {
                 ) : (
                   <>
                     <div className="flex justify-end">
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>Export Result JSON</Button>
+                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>Export JSON</Button>
                     </div>
                     <ResultSection title="Dominant Audience Emotion">
                       <div className="border border-primary/40 bg-primary/5 p-3 inline-block">
@@ -455,6 +520,7 @@ export function PatternAnalysis() {
             </ScrollArea>
           </TabsContent>
 
+          {/* RAW COMMENTS TAB */}
           {allComments.length > 0 && (
             <TabsContent value="commentsraw" className="flex-1 overflow-hidden">
               <div className="flex flex-col h-full overflow-hidden">
