@@ -25,13 +25,11 @@ export function ResearchTable() {
   const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS)
   const resizing = useRef(null)
 
-  // ── COLUMN RESIZE ──
   const startResize = useCallback((col, e) => {
     e.preventDefault()
     const startX = e.clientX
     const startW = colWidths[col]
     resizing.current = { col, startX, startW }
-
     function onMove(ev) {
       if (!resizing.current) return
       const delta = ev.clientX - resizing.current.startX
@@ -47,7 +45,6 @@ export function ResearchTable() {
     window.addEventListener('mouseup', onUp)
   }, [colWidths])
 
-  // ── DUPLICATE COUNT ──
   const dupeCount = useMemo(() => {
     const seen = new Set()
     let count = 0
@@ -59,7 +56,6 @@ export function ResearchTable() {
     return count
   }, [entries])
 
-  // ── FILTERED + SORTED ROWS ──
   const rows = useMemo(() => {
     let r = entries.map((e, i) => ({ ...e, _idx: i }))
     if (filterQual === 'yes') r = r.filter(e => e.qualifies)
@@ -116,8 +112,7 @@ export function ResearchTable() {
     input.click()
   }
 
-  // ── RESIZABLE TH ──
-  function Th({ col, label, align = 'left' }) {
+  function Th({ col, label }) {
     const w = colWidths[col]
     const active = sortCol === col
     return (
@@ -127,18 +122,20 @@ export function ResearchTable() {
         onClick={() => toggleSort(col)}
       >
         <span>{label}{active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</span>
-        {/* RESIZE HANDLE */}
         <span
           onMouseDown={e => { e.stopPropagation(); startResize(col, e) }}
           onClick={e => e.stopPropagation()}
-          style={{
-            position: 'absolute', right: 0, top: 0, bottom: 0,
-            width: 6, cursor: 'col-resize', zIndex: 2,
-          }}
+          style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 2 }}
           className="hover:bg-primary/40 transition-colors"
         />
       </th>
     )
+  }
+
+  // Row background — alternating shades, overridden by selected state
+  function rowBg(e, i) {
+    if (selected.has(e.id)) return 'bg-primary/5'
+    return i % 2 === 0 ? 'bg-background' : 'bg-muted/20'
   }
 
   return (
@@ -237,8 +234,9 @@ export function ResearchTable() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(e => (
-                <tr key={e.id} className={`border-b border-border hover:bg-muted/30 transition-colors ${selected.has(e.id) ? 'bg-primary/5' : ''}`}>
+              {rows.map((e, i) => (
+                <tr key={e.id}
+                  className={`border-b border-border hover:bg-primary/5 transition-colors ${rowBg(e, i)}`}>
                   <td style={{ width: colWidths.cb }} className="px-2 py-1.5">
                     <input type="checkbox" className="accent-primary w-3 h-3" checked={selected.has(e.id)} onChange={() => toggleRow(e.id)} />
                   </td>
