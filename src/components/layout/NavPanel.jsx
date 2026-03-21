@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Search, Radio, CheckSquare, BarChart2,
-  Key, Palette, ChevronLeft, ChevronRight
+  Key, Palette, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,7 @@ export function NavPanel() {
   const location = useLocation()
   const { navExpanded, setNavExpanded } = useStore()
 
-  const width = navExpanded ? 'w-[220px]' : 'w-[56px]'
+  const width = navExpanded ? 'w-[220px]' : 'w-[52px]'
 
   function NavItem({ item }) {
     const active = location.pathname === item.path
@@ -34,7 +34,7 @@ export function NavPanel() {
       <button
         onClick={() => navigate(item.path)}
         className={cn(
-          'flex items-center gap-3 w-full px-3 py-2 rounded-sm text-xs font-head font-semibold tracking-wider uppercase transition-colors',
+          'flex items-center gap-3 w-full px-3 py-2 text-xs font-head font-semibold tracking-wider uppercase transition-colors',
           active
             ? 'bg-primary/10 text-primary border-l-2 border-primary'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -59,17 +59,25 @@ export function NavPanel() {
 
   return (
     <div className={cn('flex flex-col h-full bg-card border-r border-border transition-all duration-200 flex-shrink-0', width)}>
-      <div className="flex flex-col gap-1 p-2 flex-1">
+
+      {/* MAIN NAV */}
+      <div className="flex flex-col gap-0.5 p-1.5 flex-1 pt-2">
         {NAV_ITEMS.map(item => <NavItem key={item.path} item={item} />)}
-        <Separator className="my-2" />
-        {BOTTOM_ITEMS.map(item => <NavItem key={item.path} item={item} />)}
       </div>
-      <div className="p-2 border-t border-border">
+
+      {/* BOTTOM — Settings + Toggle */}
+      <div className="flex flex-col gap-0.5 p-1.5 border-t border-border">
+        {BOTTOM_ITEMS.map(item => <NavItem key={item.path} item={item} />)}
+        <Separator className="my-1" />
         <button
           onClick={() => setNavExpanded(!navExpanded)}
-          className="flex items-center justify-center w-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-sm transition-colors"
+          className="flex items-center justify-center w-full p-2 text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+          title={navExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
-          {navExpanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {navExpanded
+            ? <PanelLeftClose size={15} />
+            : <PanelLeftOpen size={15} />
+          }
         </button>
       </div>
     </div>
