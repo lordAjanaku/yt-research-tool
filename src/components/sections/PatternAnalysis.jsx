@@ -175,10 +175,27 @@ export function PatternAnalysis() {
     setCommentRunning(false)
   }
 
-  function exportCommentCSV() {
-    const hdr = 'likes,is_reply,date,author,text'
-    const rows = allComments.map(c => [c.likes, c.isReply ? 'reply' : 'top', c.date, `"${c.author?.replace(/"/g,'""')}"`, `"${c.text?.replace(/"/g,'""')}"`].join(','))
-    downloadFile([hdr, ...rows].join('\n'), `comments_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv')
+  // ── EXPORT HELPERS ──
+  const date = new Date().toISOString().slice(0, 10)
+
+  function exportComments(format) {
+    if (format === 'json') {
+      downloadFile(JSON.stringify(allComments, null, 2), `comments_${date}.json`, 'application/json')
+    } else {
+      const hdr = 'likes,is_reply,date,author,text'
+      const rows = allComments.map(c => [c.likes, c.isReply ? 'reply' : 'top', c.date, `"${c.author?.replace(/"/g,'""')}"`, `"${c.text?.replace(/"/g,'""')}"`].join(','))
+      downloadFile([hdr, ...rows].join('\n'), `comments_${date}.csv`, 'text/csv')
+    }
+  }
+
+  function exportOutlierResult() {
+    if (!outlierResult) return
+    downloadFile(JSON.stringify(outlierResult, null, 2), `outlier_analysis_${date}.json`, 'application/json')
+  }
+
+  function exportCommentResult() {
+    if (!commentResult) return
+    downloadFile(JSON.stringify(commentResult, null, 2), `comment_analysis_${date}.json`, 'application/json')
   }
 
   const logColor = (t) => t === 'ok' ? 'text-green-400' : t === 'err' ? 'text-destructive' : 'text-primary'
@@ -253,9 +270,7 @@ export function PatternAnalysis() {
                 </div>
                 {outlierError && <p className="text-[10px] text-destructive break-words">{outlierError}</p>}
                 <Button className="w-full text-xs" onClick={runOutlierAnalysis} disabled={outlierRunning || !outlierData.length}>
-                  {outlierRunning ? (
-                    <span className="flex items-center gap-2"><Spinner size={12} /> Analysing...</span>
-                  ) : 'Run Outlier Analysis'}
+                  {outlierRunning ? <span className="flex items-center gap-2"><Spinner size={12} /> Analysing...</span> : 'Run Outlier Analysis'}
                 </Button>
               </div>
             </div>
@@ -309,7 +324,8 @@ export function PatternAnalysis() {
                       <Button className="flex-1 text-[10px]" size="sm" onClick={runCommentAnalysis} disabled={commentRunning || !filteredComments.length}>
                         {commentRunning ? <span className="flex items-center gap-1"><Spinner size={11} /> Analysing...</span> : 'Run AI Analysis'}
                       </Button>
-                      <Button variant="outline" className="text-[10px]" size="sm" onClick={exportCommentCSV}>CSV</Button>
+                      <Button variant="outline" className="text-[10px]" size="sm" onClick={() => exportComments('json')}>JSON</Button>
+                      <Button variant="outline" className="text-[10px]" size="sm" onClick={() => exportComments('csv')}>CSV</Button>
                     </div>
                     {commentError && <p className="text-[10px] text-destructive break-words">{commentError}</p>}
                   </>
@@ -346,6 +362,12 @@ export function PatternAnalysis() {
                     sub={outlierRunning ? 'Sending data to AI, please wait' : 'Configure data source in left panel and run Outlier Analysis'} />
                 ) : (
                   <>
+                    {/* EXPORT ROW */}
+                    <div className="flex justify-end">
+                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>
+                        Export Result JSON
+                      </Button>
+                    </div>
                     <ResultSection title="Dominant Patterns">
                       <div className="grid grid-cols-2 gap-2">
                         {[['Title Type', outlierResult.dominant_title_type], ['Hook Structure', outlierResult.dominant_hook], ['Emotional Trigger', outlierResult.dominant_emotion], ['Pacing', outlierResult.dominant_pacing]].map(([label, value]) => (
@@ -400,6 +422,12 @@ export function PatternAnalysis() {
                     sub={commentRunning ? 'Sending comments to AI, please wait' : 'Fetch comments using the left panel then run AI Analysis'} />
                 ) : (
                   <>
+                    {/* EXPORT ROW */}
+                    <div className="flex justify-end">
+                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>
+                        Export Result JSON
+                      </Button>
+                    </div>
                     <ResultSection title="Dominant Audience Emotion">
                       <div className="border border-primary/40 bg-primary/5 p-3 inline-block">
                         <p className="font-head font-bold text-lg tracking-widest text-primary">{commentResult.audience_emotion}</p>
@@ -436,7 +464,10 @@ export function PatternAnalysis() {
                 <div className="flex items-center gap-3 px-3 py-2 border-b border-border bg-card flex-shrink-0">
                   <span className="text-[10px] text-muted-foreground">{filteredComments.length} shown (min {commentMinLikes || 0} likes)</span>
                   <span className="text-[10px] text-muted-foreground">Sorted by likes ↓</span>
-                  <Button size="sm" variant="outline" className="text-[10px] h-6 px-2 ml-auto" onClick={exportCommentCSV}>Export CSV</Button>
+                  <div className="flex gap-1 ml-auto">
+                    <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => exportComments('json')}>Export JSON</Button>
+                    <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => exportComments('csv')}>Export CSV</Button>
+                  </div>
                 </div>
                 <div className="flex-1 overflow-auto">
                   <table className="w-full border-collapse" style={{ minWidth: 500 }}>
