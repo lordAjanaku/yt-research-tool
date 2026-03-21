@@ -6,12 +6,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { useYouTubeAPI } from '@/hooks/useYouTubeAPI'
-import { fmtNum, parseNum, calcMedian } from '@/utils/numbers'
-import { toCSV, downloadFile } from '@/utils/exportData'
+import { fmtNum, parseNum } from '@/utils/numbers'
 import { ResearchTable } from '@/components/outlier/ResearchTable'
 
 const TITLE_TYPES = ['Tension','Mechanism','Contrarian','Stakes','Historical Revelation','Curiosity Gap']
@@ -36,9 +35,10 @@ function QualifyBadge({ entry }) {
 }
 
 export function OutlierResearch() {
-  const { entries, addEntry, outlierThreshold, channelBaseline } = useStore()
+  const { entries, addEntry, outlierThreshold } = useStore()
   const { fetchSingle, fetchMultiURL, fetchKeywordSearch } = useYouTubeAPI()
 
+  const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [fetchLog, setFetchLog] = useState('// Ready — enter API key in Settings to enable fetch')
   const [fetchLogType, setFetchLogType] = useState('info')
   const [singleURL, setSingleURL] = useState('')
@@ -70,9 +70,7 @@ export function OutlierResearch() {
     return { views, chMedian, subs, length, chMult, qualifies }
   }
 
-  function populateForm(v) {
-    setForm(f => ({ ...f, ...v }))
-  }
+  function populateForm(v) { setForm(f => ({ ...f, ...v })) }
 
   async function handleFetchSingle() {
     if (!singleURL) return
@@ -142,15 +140,12 @@ export function OutlierResearch() {
   }
 
   function handleLog() {
-    const { views, chMedian, subs, length, chMult, qualifies } = calcForm(form)
+    const { views, chMedian, subs, length, chMult } = calcForm(form)
     if (!form.title || !views) return
     addEntry({
-      search: form.search,
-      title: form.title, channel: form.channel,
-      subs, views, length,
-      date: form.date,
-      median: parseNum(form.median),
-      chMedian, chMult,
+      search: form.search, title: form.title, channel: form.channel,
+      subs, views, length, date: form.date,
+      median: parseNum(form.median), chMedian, chMult,
       searchMult: form.median ? parseFloat((views / parseNum(form.median)).toFixed(2)) : 0,
       comments: form.comments || 'No',
       titleType: form.titleType, emotion: form.emotion,
@@ -167,19 +162,32 @@ export function OutlierResearch() {
   }
 
   const computed = calcForm(form)
-
   const logColor = fetchLogType === 'ok' ? 'text-green-400' : fetchLogType === 'err' ? 'text-destructive' : 'text-primary'
-
   const multiCount = multiURLs.split('\n').filter(u => u.trim()).length
 
   return (
     <div className="flex flex-1 overflow-hidden">
+
       {/* LEFT PANEL */}
-      <div className="w-[300px] flex-shrink-0 border-r border-border flex flex-col">
-        <div className="px-4 py-3 border-b border-border bg-card flex-shrink-0">
-          <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Data Entry</p>
-          <p className="text-xs text-muted-foreground">Fetch or enter manually</p>
+      <div
+        className="flex-shrink-0 border-r border-border flex flex-col transition-all duration-200"
+        style={{ width: leftCollapsed ? 0 : 'clamp(280px, 25vw, 400px)', overflow: leftCollapsed ? 'hidden' : undefined }}
+      >
+        {/* PANEL HEADER with collapse toggle */}
+        <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between">
+          <div>
+            <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Data Entry</p>
+            <p className="text-[10px] text-muted-foreground">Fetch or enter manually</p>
+          </div>
+          <button
+            onClick={() => setLeftCollapsed(true)}
+            className="text-muted-foreground hover:text-primary transition-colors p-1"
+            title="Collapse panel"
+          >
+            <PanelLeftClose size={14} />
+          </button>
         </div>
+
         <ScrollArea className="flex-1">
           <div className="p-3 flex flex-col gap-3">
 
@@ -248,7 +256,6 @@ export function OutlierResearch() {
                   </TabsContent>
                 </Tabs>
 
-                {/* BATCH RESULTS */}
                 {batchResults.length > 0 && (
                   <div className="mt-2 flex flex-col gap-1">
                     <div className="flex justify-between items-center mb-1">
@@ -326,14 +333,14 @@ export function OutlierResearch() {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="border border-border bg-card p-2">
                     <p className="text-muted-foreground text-[9px] uppercase tracking-wider">Ch. Multiple</p>
-                    <p className="text-primary font-bold mt-1">{computed.chMult > 0 ? computed.chMult.toFixed(1) + 'x' : '—'}</p>
+                    <p className="text-primary font-bold mt-1 text-xs">{computed.chMult > 0 ? computed.chMult.toFixed(1) + 'x' : '—'}</p>
                   </div>
                   <div className="border border-border bg-card p-2">
                     <p className="text-muted-foreground text-[9px] uppercase tracking-wider">Search Multiple</p>
-                    <p className="text-primary font-bold mt-1">{form.median && computed.views ? (computed.views / parseNum(form.median)).toFixed(1) + 'x' : '—'}</p>
+                    <p className="text-primary font-bold mt-1 text-xs">{form.median && computed.views ? (computed.views / parseNum(form.median)).toFixed(1) + 'x' : '—'}</p>
                   </div>
                 </div>
                 <QualifyBadge entry={{ ...form, ...computed }} />
@@ -401,12 +408,22 @@ export function OutlierResearch() {
           </div>
         </ScrollArea>
 
-        {/* STICKY FORM ACTIONS */}
         <div className="flex gap-2 p-3 border-t border-border flex-shrink-0">
           <Button className="flex-1 text-xs" onClick={handleLog}>+ Log Entry</Button>
           <Button variant="outline" className="text-xs" onClick={clearForm}>Clear</Button>
         </div>
       </div>
+
+      {/* EXPAND BUTTON — shown when left panel is collapsed */}
+      {leftCollapsed && (
+        <button
+          onClick={() => setLeftCollapsed(false)}
+          className="flex-shrink-0 flex items-center justify-center w-6 bg-card border-r border-border text-muted-foreground hover:text-primary transition-colors"
+          title="Expand panel"
+        >
+          <PanelLeftOpen size={14} />
+        </button>
+      )}
 
       {/* RIGHT PANEL */}
       <ResearchTable />
