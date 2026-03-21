@@ -49,6 +49,8 @@ export const useStore = create(
 
       deleteEntries: (ids) => set((s) => ({ entries: s.entries.filter(e => !ids.has(e.id)) })),
 
+      clearEntries: () => set({ entries: [] }),
+
       importEntries: (arr) => set({ entries: arr }),
 
       removeDuplicates: () => set((s) => {
