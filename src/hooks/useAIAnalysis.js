@@ -21,7 +21,13 @@ export function useAIAnalysis() {
       const r = await fetch(ENDPOINTS.anthropic, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': aiApiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          temperature: 0,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMessage }]
+        }),
       })
       const d = await r.json()
       if (d.error) throw new Error(d.error.message)
@@ -30,7 +36,10 @@ export function useAIAnalysis() {
       const r = await fetch(`${ENDPOINTS.gemini}?key=${aiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\n\n' + userMessage }] }] }),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt + '\n\n' + userMessage }] }],
+          generationConfig: { temperature: 0 }
+        }),
       })
       const d = await r.json()
       if (d.error) throw new Error(d.error.message)
@@ -42,7 +51,8 @@ export function useAIAnalysis() {
         body: JSON.stringify({
           model: aiProvider === 'groq' ? 'llama-3.3-70b-versatile' : 'openai/gpt-4o-mini',
           messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }],
-          max_tokens: 1000
+          max_tokens: 1000,
+          temperature: 0
         }),
       })
       const d = await r.json()
