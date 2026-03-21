@@ -27,8 +27,8 @@ const AI_PROVIDERS = [
 const ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
-  // gemini-2.0-flash — current stable model, replaces deprecated gemini-pro
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+  // gemini-2.5-flash — latest model
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   groq: 'https://api.groq.com/openai/v1/chat/completions',
 }
@@ -154,16 +154,16 @@ export function PatternAnalysis() {
 
   async function handleFetchComments() {
     if (!commentURL.trim()) return
-    if (!ytApiKey) { setCommentFetchLog('✗ No YouTube API key.'); setCommentFetchLogType('err'); return }
+    if (!ytApiKey) { setCommentFetchLog('\u2717 No YouTube API key.'); setCommentFetchLogType('err'); return }
     setCommentFetching(true); setAllComments([]); setCommentResult(null)
     setCommentFetchLog('Fetching comments...'); setCommentFetchLogType('info')
     try {
       const comments = await fetchYTComments(commentURL.trim(), parseInt(commentMax) || 100, commentReplies === 'yes', ytApiKey)
       setAllComments(comments)
       const filtered = comments.filter(c => c.likes >= (parseInt(commentMinLikes) || 0))
-      setCommentFetchLog(`✓ ${comments.length} comments fetched. ${filtered.length} pass the likes filter.`)
+      setCommentFetchLog(`\u2713 ${comments.length} comments fetched. ${filtered.length} pass the likes filter.`)
       setCommentFetchLogType('ok')
-    } catch (e) { setCommentFetchLog('✗ ' + e.message); setCommentFetchLogType('err') }
+    } catch (e) { setCommentFetchLog('\u2717 ' + e.message); setCommentFetchLogType('err') }
     setCommentFetching(false)
   }
 
@@ -230,7 +230,7 @@ export function PatternAnalysis() {
 
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
-                <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 1 — Outlier Patterns</p>
+                <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 1 \u2014 Outlier Patterns</p>
               </div>
               <div className="p-3 flex flex-col gap-3" style={{ width: '100%', boxSizing: 'border-box' }}>
                 <div>
@@ -274,7 +274,7 @@ export function PatternAnalysis() {
 
             <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
-                <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 2 — Comment Analysis</p>
+                <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">Mode 2 \u2014 Comment Analysis</p>
               </div>
               <div className="p-3 flex flex-col gap-3" style={{ width: '100%', boxSizing: 'border-box' }}>
                 <div>
@@ -351,7 +351,7 @@ export function PatternAnalysis() {
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
                 {!outlierResult ? (
-                  <EmptyState icon={outlierRunning ? <Spinner size={28} /> : '◈'}
+                  <EmptyState icon={outlierRunning ? <Spinner size={28} /> : '\u25c8'}
                     title={outlierRunning ? 'Running analysis...' : 'No analysis yet'}
                     sub={outlierRunning ? 'Sending data to AI, please wait' : 'Configure data source in left panel and run Outlier Analysis'} />
                 ) : (
@@ -391,7 +391,7 @@ export function PatternAnalysis() {
                       <div className="flex flex-col gap-1.5">
                         {outlierResult.production_checklist?.map((item, i) => (
                           <div key={i} className="flex items-start gap-2">
-                            <span className="text-primary text-xs flex-shrink-0">☐</span>
+                            <span className="text-primary text-xs flex-shrink-0">\u2610</span>
                             <span className="text-[10px] text-foreground">{item}</span>
                           </div>
                         ))}
@@ -407,7 +407,7 @@ export function PatternAnalysis() {
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
                 {!commentResult ? (
-                  <EmptyState icon={commentRunning ? <Spinner size={28} /> : '◈'}
+                  <EmptyState icon={commentRunning ? <Spinner size={28} /> : '\u25c8'}
                     title={commentRunning ? 'Running analysis...' : 'No analysis yet'}
                     sub={commentRunning ? 'Sending comments to AI, please wait' : 'Fetch comments using the left panel then run AI Analysis'} />
                 ) : (
@@ -422,8 +422,8 @@ export function PatternAnalysis() {
                     </ResultSection>
                     {[
                       { title: 'Recurring Questions from Audience', key: 'recurring_questions', icon: '?', color: 'text-primary', note: "Questions the audience repeatedly asks that existing videos don't answer." },
-                      { title: 'Content Complaints', key: 'content_complaints', icon: '✗', color: 'text-destructive', note: 'Specific things the audience says existing videos fail to cover.' },
-                      { title: 'Content Gaps', key: 'content_gaps', icon: '→', color: 'text-yellow-400', note: 'Topics the audience wants that no existing video provides.' },
+                      { title: 'Content Complaints', key: 'content_complaints', icon: '\u2717', color: 'text-destructive', note: 'Specific things the audience says existing videos fail to cover.' },
+                      { title: 'Content Gaps', key: 'content_gaps', icon: '\u2192', color: 'text-yellow-400', note: 'Topics the audience wants that no existing video provides.' },
                       { title: 'Title Ideas from Comments', key: 'title_ideas', icon: null, color: null, note: 'Video titles derived directly from what the audience is asking.' },
                     ].map(({ title, key, icon, color, note }) => (
                       <ResultSection key={key} title={title}>
@@ -449,7 +449,7 @@ export function PatternAnalysis() {
               <div className="flex flex-col h-full overflow-hidden">
                 <div className="flex items-center gap-3 px-3 py-2 border-b border-border bg-card flex-shrink-0">
                   <span className="text-[10px] text-muted-foreground">{filteredComments.length} shown (min {commentMinLikes || 0} likes)</span>
-                  <span className="text-[10px] text-muted-foreground">Sorted by likes ↓</span>
+                  <span className="text-[10px] text-muted-foreground">Sorted by likes \u2193</span>
                   <div className="flex gap-1 ml-auto">
                     <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => exportComments('json')}>Export JSON</Button>
                     <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => exportComments('csv')}>Export CSV</Button>
