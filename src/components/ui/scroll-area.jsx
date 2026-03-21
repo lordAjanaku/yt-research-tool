@@ -4,7 +4,17 @@ import { cn } from '@/lib/utils'
 
 const ScrollArea = React.forwardRef(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root ref={ref} className={cn('relative overflow-hidden', className)} {...props}>
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">{children}</ScrollAreaPrimitive.Viewport>
+    {/*
+      Radix ScrollArea's Viewport renders with `display:table` internally which
+      causes the content to expand beyond the parent's overflow:hidden boundary.
+      Forcing `overflowX:hidden` + `display:block` on the viewport div fixes this.
+    */}
+    <ScrollAreaPrimitive.Viewport
+      className="h-full w-full rounded-[inherit]"
+      style={{ overflowX: 'hidden', display: 'block' }}
+    >
+      {children}
+    </ScrollAreaPrimitive.Viewport>
     <ScrollBar />
     <ScrollAreaPrimitive.Corner />
   </ScrollAreaPrimitive.Root>
@@ -15,7 +25,13 @@ const ScrollBar = React.forwardRef(({ className, orientation = 'vertical', ...pr
   <ScrollAreaPrimitive.ScrollAreaScrollbar
     ref={ref}
     orientation={orientation}
-    className={cn('flex touch-none select-none transition-colors', orientation === 'vertical' ? 'h-full w-1 border-l border-l-transparent p-[1px]' : 'h-1 flex-col border-t border-t-transparent p-[1px]', className)}
+    className={cn(
+      'flex touch-none select-none transition-colors',
+      orientation === 'vertical'
+        ? 'h-full w-1 border-l border-l-transparent p-[1px]'
+        : 'h-1 flex-col border-t border-t-transparent p-[1px]',
+      className
+    )}
     {...props}
   >
     <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
