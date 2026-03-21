@@ -34,6 +34,9 @@ function QualifyBadge({ entry }) {
   return <div className="text-center py-2 text-xs font-head font-bold tracking-widest text-destructive border border-red-900 bg-red-900/10">✗ FAILS: {reasons.join(' · ')}</div>
 }
 
+// Fixed panel width — never stretches, never shrinks below this
+const PANEL_WIDTH = 360
+
 export function OutlierResearch() {
   const { addEntry, outlierThreshold } = useStore()
   const { fetchSingle, fetchMultiURL, fetchKeywordSearch } = useYouTubeAPI()
@@ -80,8 +83,7 @@ export function OutlierResearch() {
       populateForm({
         title: v.title, channel: v.channel, subs: String(v.subs),
         views: String(v.views), length: String(v.length), date: v.date,
-        chMedian: String(v.chMedian), comments: v.comments,
-        median: singleMedian
+        chMedian: String(v.chMedian), comments: v.comments, median: singleMedian
       })
       log(`✓ Loaded: ${v.title}`, 'ok')
     } catch (e) { log('✗ ' + e.message, 'err') }
@@ -167,74 +169,86 @@ export function OutlierResearch() {
   return (
     <div className="flex flex-1 overflow-hidden">
 
-      {/* LEFT PANEL — max 400px, overflow hidden to prevent content blowout */}
+      {/* LEFT PANEL
+          Hard fixed width — no clamp, no flex-grow, no content-driven sizing.
+          position:relative creates a proper containing block so nothing escapes.
+      */}
       <div
-        className="flex-shrink-0 border-r border-border flex flex-col transition-all duration-200"
+        className="flex-shrink-0 flex-grow-0 border-r border-border flex flex-col transition-all duration-200"
         style={{
-          width: leftCollapsed ? 0 : 'clamp(280px, 25vw, 400px)',
-          maxWidth: 400,
+          width: leftCollapsed ? 0 : PANEL_WIDTH,
+          minWidth: leftCollapsed ? 0 : PANEL_WIDTH,
+          maxWidth: PANEL_WIDTH,
           overflow: 'hidden',
-          minWidth: leftCollapsed ? 0 : 280,
+          position: 'relative',
         }}
       >
         {/* HEADER */}
-        <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between min-w-0">
-          <div className="min-w-0">
+        <div className="px-3 py-2.5 border-b border-border bg-card flex-shrink-0 flex items-center justify-between"
+          style={{ width: PANEL_WIDTH }}>
+          <div className="min-w-0 overflow-hidden">
             <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary truncate">Data Entry</p>
             <p className="text-[10px] text-muted-foreground truncate">Fetch or enter manually</p>
           </div>
           <button
             onClick={() => setLeftCollapsed(true)}
-            className="text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+            className="text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0 ml-2"
             title="Collapse panel"
           >
             <PanelLeftClose size={14} />
           </button>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-3 flex flex-col gap-3">
+        {/* ScrollArea: content is exactly PANEL_WIDTH wide, scroll vertically only */}
+        <ScrollArea className="flex-1" style={{ width: PANEL_WIDTH }}>
+          {/* Inner wrapper is also hard fixed width — this is the key constraint */}
+          <div style={{ width: PANEL_WIDTH, boxSizing: 'border-box' }} className="p-3 flex flex-col gap-3">
 
             {/* FETCH BOX */}
-            <div className="border border-primary/30 bg-card w-full overflow-hidden">
+            <div className="border border-primary/30 bg-card" style={{ width: '100%', boxSizing: 'border-box' }}>
               <div className="px-3 py-2 border-b border-primary/20 bg-primary/5">
                 <p className="font-head font-semibold text-xs tracking-widest uppercase text-primary">⚡ YouTube API Fetch</p>
               </div>
-              <div className="p-3 w-full overflow-hidden">
-                <Tabs defaultValue="single" className="w-full">
+              <div className="p-3" style={{ width: '100%', boxSizing: 'border-box' }}>
+                <Tabs defaultValue="single">
                   <TabsList className="w-full mb-3">
                     <TabsTrigger value="single" className="flex-1 text-[10px]">Single</TabsTrigger>
                     <TabsTrigger value="multi" className="flex-1 text-[10px]">Multi-URL</TabsTrigger>
                     <TabsTrigger value="search" className="flex-1 text-[10px]">Search</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="single" className="flex flex-col gap-2 w-full">
+                  <TabsContent value="single" className="flex flex-col gap-2">
                     <Label>Video URL or ID</Label>
-                    <div className="flex gap-1 w-full min-w-0">
-                      <Input value={singleURL} onChange={e => setSingleURL(e.target.value)} placeholder="https://youtube.com/watch?v=..." className="flex-1 text-[10px] min-w-0" />
+                    <div className="flex gap-1">
+                      <Input value={singleURL} onChange={e => setSingleURL(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=..." className="flex-1 min-w-0 text-[10px]" />
                       <Button size="sm" onClick={handleFetchSingle} disabled={fetching} className="flex-shrink-0 text-[10px]">Fetch</Button>
                     </div>
                     <Label>Median Views (manual)</Label>
-                    <Input value={singleMedian} onChange={e => setSingleMedian(e.target.value)} placeholder="From search result set" className="text-[10px] w-full" />
+                    <Input value={singleMedian} onChange={e => setSingleMedian(e.target.value)}
+                      placeholder="From search result set" className="w-full text-[10px]" />
                   </TabsContent>
 
-                  <TabsContent value="multi" className="flex flex-col gap-2 w-full">
+                  <TabsContent value="multi" className="flex flex-col gap-2">
                     <Label>Paste URLs — one per line</Label>
-                    <Textarea value={multiURLs} onChange={e => setMultiURLs(e.target.value)} placeholder="https://youtube.com/watch?v=abc&#10;https://youtu.be/def" className="text-[10px] min-h-[80px] w-full" />
-                    <div className="flex items-center justify-between w-full">
+                    <Textarea value={multiURLs} onChange={e => setMultiURLs(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=abc&#10;https://youtu.be/def"
+                      className="w-full text-[10px] min-h-[80px]" />
+                    <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">{multiCount} URL{multiCount !== 1 ? 's' : ''} detected</span>
                       <Button size="sm" onClick={handleFetchMulti} disabled={fetching} className="text-[10px]">Fetch All</Button>
                     </div>
                     {fetching && <Progress value={progress} className="h-1 w-full" />}
                   </TabsContent>
 
-                  <TabsContent value="search" className="flex flex-col gap-2 w-full">
+                  <TabsContent value="search" className="flex flex-col gap-2">
                     <Label>Search Keyword</Label>
-                    <div className="flex gap-1 w-full min-w-0">
-                      <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="e.g. history of money" className="flex-1 text-[10px] min-w-0" />
-                      <Button size="sm" onClick={handleSearch} disabled={fetching} className="text-[10px] flex-shrink-0">Go</Button>
+                    <div className="flex gap-1">
+                      <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="e.g. history of money" className="flex-1 min-w-0 text-[10px]" />
+                      <Button size="sm" onClick={handleSearch} disabled={fetching} className="flex-shrink-0 text-[10px]">Go</Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 w-full">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label>Published Within</Label>
                         <Select value={searchPeriod} onValueChange={setSearchPeriod}>
@@ -260,166 +274,157 @@ export function OutlierResearch() {
                   </TabsContent>
                 </Tabs>
 
-                {/* BATCH RESULTS — fully contained, no overflow */}
+                {/* BATCH RESULTS */}
                 {batchResults.length > 0 && (
-                  <div className="mt-2 flex flex-col gap-1 w-full overflow-hidden">
-                    <div className="flex justify-between items-center mb-1 w-full min-w-0">
-                      <Label className="truncate">Results — click to load</Label>
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">Median: {fmtNum(batchMedian)}</span>
+                  <div className="mt-2 flex flex-col gap-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Results — click to load</Label>
+                      <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">Median: {fmtNum(batchMedian)}</span>
                     </div>
-                    <div className="max-h-[180px] overflow-y-auto overflow-x-hidden flex flex-col gap-1 w-full">
+                    {/* Result list: overflow-y scroll, overflow-x hidden, items truncate */}
+                    <div className="flex flex-col gap-1 overflow-y-auto overflow-x-hidden" style={{ maxHeight: 180 }}>
                       {batchResults.map((v, i) => (
-                        <button key={i} onClick={() => loadBatchItem(v)}
-                          className="flex items-center gap-2 p-2 border border-border hover:border-primary text-left bg-background transition-colors w-full overflow-hidden">
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-[10px] text-foreground truncate w-full">{v.title}</p>
-                            <p className="text-[9px] text-muted-foreground truncate">{v.channel} · {v.subs}K · {v.length}min</p>
+                        <button
+                          key={i}
+                          onClick={() => loadBatchItem(v)}
+                          className="flex items-center gap-2 p-2 border border-border hover:border-primary text-left bg-background transition-colors"
+                          style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }}
+                        >
+                          {/* Title + meta: flex-1 min-w-0 forces truncation */}
+                          <div className="flex-1 overflow-hidden" style={{ minWidth: 0 }}>
+                            <p className="text-[10px] text-foreground" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</p>
+                            <p className="text-[9px] text-muted-foreground" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.channel} · {v.subs}K · {v.length}min</p>
                           </div>
-                          <div className="flex-shrink-0 text-right">
+                          {/* Stats: flex-shrink-0, never truncated */}
+                          <div className="flex-shrink-0 text-right" style={{ minWidth: 60 }}>
                             <p className="text-[10px] text-primary whitespace-nowrap">{fmtNum(v.views)} · {v.chMult}x</p>
-                            <p className={`text-[9px] font-head font-bold ${v.qualifies ? 'text-green-400' : 'text-destructive'}`}>{v.qualifies ? '✓' : '✗'}</p>
+                            <p className={`text-[9px] font-head font-bold ${v.qualifies ? 'text-green-400' : 'text-destructive'}`}>{v.qualifies ? '✓ QUAL' : '✗ NO'}</p>
                           </div>
                         </button>
                       ))}
                     </div>
-                    <div className="flex gap-1 mt-1 w-full">
-                      <Button size="sm" variant="outline" className="flex-1 text-[10px]" onClick={() => autoLog(batchResults.filter(v => v.qualifies))}>Log Qualified</Button>
-                      <Button size="sm" variant="outline" className="flex-1 text-[10px]" onClick={() => autoLog(batchResults)}>Log All</Button>
+                    <div className="flex gap-1 mt-1">
+                      <Button size="sm" variant="outline" className="flex-1 text-[10px]"
+                        onClick={() => autoLog(batchResults.filter(v => v.qualifies))}>Log Qualified</Button>
+                      <Button size="sm" variant="outline" className="flex-1 text-[10px]"
+                        onClick={() => autoLog(batchResults)}>Log All</Button>
                     </div>
                   </div>
                 )}
 
-                <div className={`mt-2 p-2 bg-background border border-border text-[10px] font-mono min-h-[28px] w-full overflow-hidden break-words ${logColor}`}>{fetchLog}</div>
+                <div className={`mt-2 p-2 bg-background border border-border text-[10px] font-mono min-h-[28px] break-all ${logColor}`}
+                  style={{ width: '100%', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
+                  {fetchLog}
+                </div>
               </div>
             </div>
 
             {/* SECTION 01 */}
-            <div className="border border-border w-full">
-              <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">01</span>
-                <span className="text-xs text-foreground">Search Context</span>
-              </div>
-              <div className="p-3 flex flex-col gap-2">
-                <Label>Search Term Used</Label>
-                <Input value={form.search} onChange={e => setForm(f => ({...f, search: e.target.value}))} placeholder="e.g. history of money systems" className="text-[10px] w-full" />
-                <Label>Median Views of Search Set</Label>
-                <Input value={form.median} onChange={e => setForm(f => ({...f, median: e.target.value}))} placeholder="e.g. 45000" className="text-[10px] w-full" />
-              </div>
-            </div>
+            <Section num="01" title="Search Context">
+              <Label>Search Term Used</Label>
+              <Input value={form.search} onChange={e => setForm(f => ({...f, search: e.target.value}))} placeholder="e.g. history of money systems" className="text-[10px] w-full" />
+              <Label>Median Views of Search Set</Label>
+              <Input value={form.median} onChange={e => setForm(f => ({...f, median: e.target.value}))} placeholder="e.g. 45000" className="text-[10px] w-full" />
+            </Section>
 
             {/* SECTION 02 */}
-            <div className="border border-border w-full">
-              <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">02</span>
-                <span className="text-xs text-foreground">Video Metadata</span>
+            <Section num="02" title="Video Metadata">
+              <Label>Video Title</Label>
+              <Input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Full title" className="text-[10px] w-full" />
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label>Channel</Label><Input value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))} placeholder="Channel" className="text-[10px] mt-1 w-full" /></div>
+                <div><Label>Subs (K)</Label><Input value={form.subs} onChange={e => setForm(f => ({...f, subs: e.target.value}))} placeholder="e.g. 85" className="text-[10px] mt-1 w-full" /></div>
               </div>
-              <div className="p-3 flex flex-col gap-2">
-                <Label>Video Title</Label>
-                <Input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Full title" className="text-[10px] w-full" />
-                <div className="grid grid-cols-2 gap-2">
-                  <div><Label>Channel Name</Label><Input value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))} placeholder="Channel" className="text-[10px] mt-1 w-full" /></div>
-                  <div><Label>Subscribers (K)</Label><Input value={form.subs} onChange={e => setForm(f => ({...f, subs: e.target.value}))} placeholder="e.g. 85" className="text-[10px] mt-1 w-full" /></div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><Label>Views</Label><Input value={form.views} onChange={e => setForm(f => ({...f, views: e.target.value}))} placeholder="380000" className="text-[10px] mt-1 w-full" /></div>
-                  <div><Label>Length (min)</Label><Input value={form.length} onChange={e => setForm(f => ({...f, length: e.target.value}))} placeholder="18" className="text-[10px] mt-1 w-full" /></div>
-                  <div><Label>Upload Date</Label><Input type="date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))} className="text-[10px] mt-1 w-full" /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Channel Median</Label>
-                    <Input value={form.chMedian} onChange={e => setForm(f => ({...f, chMedian: e.target.value}))} placeholder="Channel avg" className="text-[10px] mt-1 w-full" />
-                  </div>
-                  <div>
-                    <Label>Comment Clustering</Label>
-                    <Select value={form.comments} onValueChange={v => setForm(f => ({...f, comments: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{COMMENTS.map(c => <SelectItem key={c} value={c} className="text-[10px]">{c === 'No' ? 'No (organic)' : 'Yes (ext. pushed)'}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="border border-border bg-card p-2">
-                    <p className="text-muted-foreground text-[9px] uppercase tracking-wider">Ch. Multiple</p>
-                    <p className="text-primary font-bold mt-1 text-xs">{computed.chMult > 0 ? computed.chMult.toFixed(1) + 'x' : '—'}</p>
-                  </div>
-                  <div className="border border-border bg-card p-2">
-                    <p className="text-muted-foreground text-[9px] uppercase tracking-wider">Search Multiple</p>
-                    <p className="text-primary font-bold mt-1 text-xs">{form.median && computed.views ? (computed.views / parseNum(form.median)).toFixed(1) + 'x' : '—'}</p>
-                  </div>
-                </div>
-                <QualifyBadge entry={{ ...form, ...computed }} />
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label>Views</Label><Input value={form.views} onChange={e => setForm(f => ({...f, views: e.target.value}))} placeholder="380000" className="text-[10px] mt-1 w-full" /></div>
+                <div><Label>Mins</Label><Input value={form.length} onChange={e => setForm(f => ({...f, length: e.target.value}))} placeholder="18" className="text-[10px] mt-1 w-full" /></div>
+                <div><Label>Date</Label><Input type="date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))} className="text-[10px] mt-1 w-full" /></div>
               </div>
-            </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Ch. Median</Label>
+                  <Input value={form.chMedian} onChange={e => setForm(f => ({...f, chMedian: e.target.value}))} placeholder="Channel avg" className="text-[10px] mt-1 w-full" />
+                </div>
+                <div>
+                  <Label>Comments</Label>
+                  <Select value={form.comments} onValueChange={v => setForm(f => ({...f, comments: v}))}>
+                    <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="No" className="text-[10px]">No (organic)</SelectItem>
+                      <SelectItem value="Yes" className="text-[10px]">Yes (pushed)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="border border-border bg-card p-2">
+                  <p className="text-muted-foreground text-[9px] uppercase tracking-wider">Ch. Multiple</p>
+                  <p className="text-primary font-bold mt-1 text-xs">{computed.chMult > 0 ? computed.chMult.toFixed(1) + 'x' : '—'}</p>
+                </div>
+                <div className="border border-border bg-card p-2">
+                  <p className="text-muted-foreground text-[9px] uppercase tracking-wider">Search ×</p>
+                  <p className="text-primary font-bold mt-1 text-xs">{form.median && computed.views ? (computed.views / parseNum(form.median)).toFixed(1) + 'x' : '—'}</p>
+                </div>
+              </div>
+              <QualifyBadge entry={{ ...form, ...computed }} />
+            </Section>
 
             {/* SECTION 03 */}
-            <div className="border border-border w-full">
-              <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">03</span>
-                <span className="text-xs text-foreground">Packaging Analysis</span>
-              </div>
-              <div className="p-3 flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Title Type</Label>
-                    <Select value={form.titleType} onValueChange={v => setForm(f => ({...f, titleType: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{TITLE_TYPES.map(t => <SelectItem key={t} value={t} className="text-[10px]">{t}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Emotional Trigger</Label>
-                    <Select value={form.emotion} onValueChange={v => setForm(f => ({...f, emotion: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{EMOTIONS.map(e => <SelectItem key={e} value={e} className="text-[10px]">{e}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+            <Section num="03" title="Packaging Analysis">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Title Type</Label>
+                  <Select value={form.titleType} onValueChange={v => setForm(f => ({...f, titleType: v}))}>
+                    <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>{TITLE_TYPES.map(t => <SelectItem key={t} value={t} className="text-[10px]">{t}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
-                <Label>Thumbnail Description</Label>
-                <Textarea value={form.thumbnail} onChange={e => setForm(f => ({...f, thumbnail: e.target.value}))} placeholder="Elements, text, faces, contrast, emotion..." className="text-[10px] w-full" />
+                <div>
+                  <Label>Emotion</Label>
+                  <Select value={form.emotion} onValueChange={v => setForm(f => ({...f, emotion: v}))}>
+                    <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>{EMOTIONS.map(e => <SelectItem key={e} value={e} className="text-[10px]">{e}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+              <Label>Thumbnail Description</Label>
+              <Textarea value={form.thumbnail} onChange={e => setForm(f => ({...f, thumbnail: e.target.value}))} placeholder="Elements, text, faces, contrast, emotion..." className="text-[10px] w-full" />
+            </Section>
 
             {/* SECTION 04 */}
-            <div className="border border-border w-full">
-              <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
-                <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">04</span>
-                <span className="text-xs text-foreground">Content Analysis</span>
-              </div>
-              <div className="p-3 flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Hook Structure</Label>
-                    <Select value={form.hook} onValueChange={v => setForm(f => ({...f, hook: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{HOOKS.map(h => <SelectItem key={h} value={h} className="text-[10px]">{h}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Pacing</Label>
-                    <Select value={form.pacing} onValueChange={v => setForm(f => ({...f, pacing: v}))}>
-                      <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{PACING.map(p => <SelectItem key={p} value={p} className="text-[10px]">{p}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+            <Section num="04" title="Content Analysis">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Hook</Label>
+                  <Select value={form.hook} onValueChange={v => setForm(f => ({...f, hook: v}))}>
+                    <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>{HOOKS.map(h => <SelectItem key={h} value={h} className="text-[10px]">{h}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
-                <Label>Narrative Arc</Label>
-                <Textarea value={form.arc} onChange={e => setForm(f => ({...f, arc: e.target.value}))} placeholder="Problem → Mechanism → Consequence → Modern connection..." className="text-[10px] w-full" />
-                <Label>Key Insight</Label>
-                <Textarea value={form.insight} onChange={e => setForm(f => ({...f, insight: e.target.value}))} placeholder="Why did this video outperform?" className="text-[10px] w-full" />
+                <div>
+                  <Label>Pacing</Label>
+                  <Select value={form.pacing} onValueChange={v => setForm(f => ({...f, pacing: v}))}>
+                    <SelectTrigger className="text-[10px] mt-1 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>{PACING.map(p => <SelectItem key={p} value={p} className="text-[10px]">{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+              <Label>Narrative Arc</Label>
+              <Textarea value={form.arc} onChange={e => setForm(f => ({...f, arc: e.target.value}))} placeholder="Problem → Mechanism → Consequence → Modern connection..." className="text-[10px] w-full" />
+              <Label>Key Insight</Label>
+              <Textarea value={form.insight} onChange={e => setForm(f => ({...f, insight: e.target.value}))} placeholder="Why did this video outperform?" className="text-[10px] w-full" />
+            </Section>
 
           </div>
         </ScrollArea>
 
-        <div className="flex gap-2 p-3 border-t border-border flex-shrink-0">
+        <div className="flex gap-2 p-3 border-t border-border flex-shrink-0" style={{ width: PANEL_WIDTH }}>
           <Button className="flex-1 text-xs" onClick={handleLog}>+ Log Entry</Button>
           <Button variant="outline" className="text-xs" onClick={clearForm}>Clear</Button>
         </div>
       </div>
 
-      {/* EXPAND BUTTON — shown when collapsed */}
+      {/* EXPAND BUTTON */}
       {leftCollapsed && (
         <button
           onClick={() => setLeftCollapsed(false)}
@@ -430,8 +435,20 @@ export function OutlierResearch() {
         </button>
       )}
 
-      {/* RIGHT PANEL */}
       <ResearchTable />
+    </div>
+  )
+}
+
+// Small helper to avoid repeating section wrapper markup
+function Section({ num, title, children }) {
+  return (
+    <div className="border border-border" style={{ width: '100%', boxSizing: 'border-box' }}>
+      <div className="px-3 py-2 bg-card border-b border-border flex items-center gap-2">
+        <span className="text-[10px] text-primary border border-primary px-1 flex-shrink-0">{num}</span>
+        <span className="text-xs text-foreground">{title}</span>
+      </div>
+      <div className="p-3 flex flex-col gap-2">{children}</div>
     </div>
   )
 }
