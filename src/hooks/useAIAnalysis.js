@@ -4,7 +4,7 @@ import { buildSystemPrompt, buildUserMessage } from '../utils/aiPrompt'
 const ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   groq: 'https://api.groq.com/openai/v1/chat/completions',
 }
@@ -39,7 +39,11 @@ export function useAIAnalysis() {
       const r = await fetch(ENDPOINTS[aiProvider], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiApiKey}` },
-        body: JSON.stringify({ model: aiProvider === 'groq' ? 'llama-3.3-70b-versatile' : 'openai/gpt-4o-mini', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }], max_tokens: 1000 }),
+        body: JSON.stringify({
+          model: aiProvider === 'groq' ? 'llama-3.3-70b-versatile' : 'openai/gpt-4o-mini',
+          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }],
+          max_tokens: 1000
+        }),
       })
       const d = await r.json()
       if (d.error) throw new Error(d.error.message || JSON.stringify(d.error))
@@ -47,8 +51,7 @@ export function useAIAnalysis() {
     }
 
     const clean = raw.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(clean)
-    return parsed
+    return JSON.parse(clean)
   }
 
   async function testKey() {
