@@ -4,6 +4,13 @@ import { getQualifies } from '../utils/qualify'
 
 const STORAGE_KEY = 'yt-research-tool-v1'
 
+// Merge comma-separated search term strings, deduplicated
+function mergeSearchTerms(...termStrings) {
+  const all = termStrings
+    .flatMap(s => (s || '').split(',').map(t => t.trim()).filter(Boolean))
+  return [...new Set(all)].join(', ')
+}
+
 export const useStore = create(
   persist(
     (set, get) => ({
@@ -33,6 +40,8 @@ export const useStore = create(
         entries: [...s.entries, {
           ...entry,
           id: Date.now() + Math.random(),
+          // Auto-populate searchTerms from search field if not explicitly provided
+          searchTerms: entry.searchTerms || entry.search || '',
           qualifies: getQualifies({ ...entry, threshold: s.outlierThreshold }),
         }]
       })),
@@ -53,17 +62,31 @@ export const useStore = create(
 
       importEntries: (arr) => set({ entries: arr }),
 
-      removeDuplicates: () => set((s) => {
-        const seen = new Set()
-        return {
-          entries: s.entries.filter(e => {
-            const key = e.title + '|' + e.channel
-            if (seen.has(key)) return false
-            seen.add(key)
-            return true
-          })
-        }
+      // Duplicate = same title + same channel (searchTerms are NOT part of duplicate key).
+      // When merging: keep first entry's data, combine all unique search terms from all duplicates.
+      mergeDuplicates: () => set((s) => {
+        const groups = {}
+        const order = []
+        s.entries.forEach(e => {
+          const key = e.title + '|' + e.channel
+          if (!groups[key]) {
+            groups[key] = []
+            order.push(key)
+          }
+          groups[key].push(e)
+        })
+        const merged = order.map(key => {
+          const group = groups[key]
+          if (group.length === 1) return group[0]
+          // Merge all search terms, deduplicated
+          const combinedTerms = mergeSearchTerms(...group.map(e => e.searchTerms))
+          return { ...group[0], searchTerms: combinedTerms }
+        })
+        return { entries: merged }
       }),
+
+      // Legacy alias — kept for backward compat but now calls mergeDuplicates
+      removeDuplicates: () => get().mergeDuplicates(),
 
       // ─ TOPIC VALIDATION
       validation: {

@@ -11,12 +11,12 @@ const TITLE_TYPES = ['Tension','Mechanism','Contrarian','Stakes','Historical Rev
 
 const DEFAULT_WIDTHS = {
   cb: 32, idx: 40, title: 200, channel: 120, subs: 70,
-  views: 80, chMult: 70, qual: 60, titleType: 130,
-  emotion: 90, hook: 110, pacing: 70, actions: 60
+  views: 80, chMult: 70, qual: 60, searchTerms: 160,
+  titleType: 130, emotion: 90, hook: 110, pacing: 70, actions: 60
 }
 
 export function ResearchTable() {
-  const { entries, deleteEntry, deleteEntries, clearEntries, removeDuplicates, importEntries } = useStore()
+  const { entries, deleteEntry, deleteEntries, clearEntries, mergeDuplicates, updateEntry, importEntries } = useStore()
   const [selected, setSelected] = useState(new Set())
   const [sortCol, setSortCol] = useState('index')
   const [sortDir, setSortDir] = useState('desc')
@@ -24,6 +24,9 @@ export function ResearchTable() {
   const [filterType, setFilterType] = useState('all')
   const [exportMode, setExportMode] = useState('all')
   const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS)
+  // inline edit state for searchTerms cell
+  const [editingId, setEditingId] = useState(null)
+  const [editingVal, setEditingVal] = useState('')
   const resizing = useRef(null)
 
   const startResize = useCallback((col, e) => {
@@ -46,6 +49,7 @@ export function ResearchTable() {
     window.addEventListener('mouseup', onUp)
   }, [colWidths])
 
+  // Duplicate detection: title + channel only (searchTerms excluded)
   const dupeCount = useMemo(() => {
     const seen = new Set()
     let count = 0
@@ -103,7 +107,6 @@ export function ResearchTable() {
     else downloadFile(toCSV(data), `outlier_${date}.csv`, 'text/csv')
   }
 
-  // Import accepts both JSON and CSV
   function handleImport() {
     const input = document.createElement('input')
     input.type = 'file'
@@ -117,7 +120,6 @@ export function ResearchTable() {
           let data
           if (file.name.endsWith('.csv')) {
             data = parseCSV(ev.target.result)
-            // coerce numeric fields from CSV strings
             data = data.map(row => ({
               ...row,
               subs: parseFloat(row.subs) || 0,
@@ -141,6 +143,18 @@ export function ResearchTable() {
       e.target.value = ''
     }
     input.click()
+  }
+
+  // Inline search terms edit
+  function startEdit(e) {
+    setEditingId(e.id)
+    setEditingVal(e.searchTerms || '')
+  }
+
+  function commitEdit(id) {
+    updateEntry(id, { searchTerms: editingVal.trim() })
+    setEditingId(null)
+    setEditingVal('')
   }
 
   function Th({ col, label }) {
@@ -215,8 +229,9 @@ export function ResearchTable() {
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {dupeCount > 0 && (
-            <Button size="sm" variant="destructive" className="text-[10px] h-6 px-2" onClick={removeDuplicates}>
-              {dupeCount} Dupes
+            <Button size="sm" variant="destructive" className="text-[10px] h-6 px-2" onClick={mergeDuplicates}
+              title="Merge duplicates — combines search terms from all matching entries">
+              Merge {dupeCount} Dupes
             </Button>
           )}
           {entries.length > 0 && (
@@ -234,7 +249,6 @@ export function ResearchTable() {
           </Select>
           <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => handleExport('json')}>JSON</Button>
           <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => handleExport('csv')}>CSV</Button>
-          {/* Import now accepts both .json and .csv */}
           <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={handleImport}>Import</Button>
         </div>
       </div>
@@ -262,6 +276,7 @@ export function ResearchTable() {
                 <Th col="views" label="Views" />
                 <Th col="chMult" label="Ch.×" />
                 <Th col="qual" label="Qual" />
+                <Th col="searchTerms" label="Search Terms" />
                 <Th col="titleType" label="Title Type" />
                 <Th col="emotion" label="Emotion" />
                 <Th col="hook" label="Hook" />
@@ -287,6 +302,34 @@ export function ResearchTable() {
                   <td style={{ width: colWidths.qual }} className="px-2 py-1.5">
                     <Badge variant={e.qualifies ? 'success' : 'destructive'} className="text-[9px]">{e.qualifies ? 'YES' : 'NO'}</Badge>
                   </td>
+
+                  {/* SEARCH TERMS — inline editable */}
+                  <td style={{ width: colWidths.searchTerms, overflow: 'hidden' }} className="px-2 py-1.5">
+                    {editingId === e.id ? (
+                      <input
+                        autoFocus
+                        value={editingVal}
+                        onChange={ev => setEditingVal(ev.target.value)}
+                        onBlur={() => commitEdit(e.id)}
+                        onKeyDown={ev => { if (ev.key === 'Enter') commitEdit(e.id); if (ev.key === 'Escape') { setEditingId(null); setEditingVal('') } }}
+                        placeholder="term1, term2"
+                        style={{
+                          width: '100%', background: 'var(--background)', border: '1px solid var(--primary)',
+                          color: 'var(--foreground)', fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', outline: 'none'
+                        }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => startEdit(e)}
+                        title={e.searchTerms || 'Click to add search terms'}
+                        style={{ cursor: 'text', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        className={`text-[10px] ${e.searchTerms ? 'text-primary/80' : 'text-muted-foreground/40 italic'}`}
+                      >
+                        {e.searchTerms || 'click to edit'}
+                      </span>
+                    )}
+                  </td>
+
                   <td style={{ width: colWidths.titleType }} className="px-2 py-1.5 text-[10px] text-primary">{e.titleType || '—'}</td>
                   <td style={{ width: colWidths.emotion }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.emotion || '—'}</td>
                   <td style={{ width: colWidths.hook }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.hook || '—'}</td>

@@ -126,7 +126,10 @@ export function ChannelAnalysis() {
 
   function logVideo(v) {
     addEntry({
-      search: channelInfo?.name || '', title: v.title, channel: v.channel,
+      search: channelInfo?.name || '',
+      // Videos from Channel Analysis get a fixed search term label
+      searchTerms: 'From Channel',
+      title: v.title, channel: v.channel,
       subs: v.subs, views: v.views, length: v.length, date: v.date,
       chMedian: v.chMedian, chMult: v.chMult, median: v.chMedian, searchMult: 0,
       comments: 'No', titleType: '', emotion: '', thumbnail: '', hook: '', pacing: '', arc: '', insight: ''
