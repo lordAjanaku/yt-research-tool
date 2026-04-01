@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/store/useStore'
 import { fmtNum } from '@/utils/numbers'
-import { toCSV, downloadFile } from '@/utils/exportData'
+import { toCSV, prepareForExport, downloadFile } from '@/utils/exportData'
 import { parseCSV } from '@/utils/csvParser'
 
 const TITLE_TYPES = ['Tension','Mechanism','Contrarian','Stakes','Historical Revelation','Curiosity Gap']
@@ -13,6 +13,14 @@ const DEFAULT_WIDTHS = {
   cb: 32, idx: 40, title: 200, channel: 120, subs: 70,
   views: 80, chMult: 70, qual: 60, searchTerms: 160,
   titleType: 130, emotion: 90, hook: 110, pacing: 70, actions: 60
+}
+
+// Subs exported as raw (e.g. 22000). On import normalise back to K.
+// If subs > 500 it came from a new-format export → divide by 1000.
+// Old internal K values are always ≤ 199 (we only log <200K channels).
+function normaliseSubs(v) {
+  const n = parseFloat(v) || 0
+  return n > 500 ? Math.round(n / 1000) : n
 }
 
 export function ResearchTable() {
@@ -24,7 +32,6 @@ export function ResearchTable() {
   const [filterType, setFilterType] = useState('all')
   const [exportMode, setExportMode] = useState('all')
   const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS)
-  // inline edit state for searchTerms cell
   const [editingId, setEditingId] = useState(null)
   const [editingVal, setEditingVal] = useState('')
   const resizing = useRef(null)
@@ -49,7 +56,6 @@ export function ResearchTable() {
     window.addEventListener('mouseup', onUp)
   }, [colWidths])
 
-  // Duplicate detection: title + channel only (searchTerms excluded)
   const dupeCount = useMemo(() => {
     const seen = new Set()
     let count = 0
@@ -98,13 +104,21 @@ export function ResearchTable() {
     }
   }
 
+  function getExportData() {
+    if (exportMode === 'qualified') return entries.filter(e => e.qualifies)
+    if (exportMode === 'filtered') return rows
+    return entries
+  }
+
   function handleExport(format) {
-    let data = entries
-    if (exportMode === 'qualified') data = entries.filter(e => e.qualifies)
-    if (exportMode === 'filtered') data = rows
+    const data = getExportData()
     const date = new Date().toISOString().slice(0, 10)
-    if (format === 'json') downloadFile(JSON.stringify(data, null, 2), `outlier_${date}.json`, 'application/json')
-    else downloadFile(toCSV(data), `outlier_${date}.csv`, 'text/csv')
+    if (format === 'json') {
+      // prepareForExport converts subs K → raw so the file has the real number
+      downloadFile(JSON.stringify(prepareForExport(data), null, 2), `outlier_${date}.json`, 'application/json')
+    } else {
+      downloadFile(toCSV(data), `outlier_${date}.csv`, 'text/csv')
+    }
   }
 
   function handleImport() {
@@ -122,7 +136,7 @@ export function ResearchTable() {
             data = parseCSV(ev.target.result)
             data = data.map(row => ({
               ...row,
-              subs: parseFloat(row.subs) || 0,
+              subs: normaliseSubs(row.subs),
               views: parseFloat(row.views) || 0,
               length: parseFloat(row.length) || 0,
               chMult: parseFloat(row.chMult) || 0,
@@ -132,6 +146,7 @@ export function ResearchTable() {
             }))
           } else {
             data = JSON.parse(ev.target.result)
+            data = data.map(row => ({ ...row, subs: normaliseSubs(row.subs) }))
           }
           if (!Array.isArray(data)) throw new Error('Expected an array')
           if (confirm(`Import ${data.length} entries? Replaces current data.`)) importEntries(data)
@@ -145,7 +160,6 @@ export function ResearchTable() {
     input.click()
   }
 
-  // Inline search terms edit
   function startEdit(e) {
     setEditingId(e.id)
     setEditingVal(e.searchTerms || '')
@@ -184,8 +198,6 @@ export function ResearchTable() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-
-      {/* TOOLBAR */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card flex-shrink-0 flex-wrap">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <input type="checkbox" className="accent-primary w-3 h-3 cursor-pointer"
@@ -253,7 +265,6 @@ export function ResearchTable() {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="flex-1 overflow-auto">
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
@@ -302,8 +313,6 @@ export function ResearchTable() {
                   <td style={{ width: colWidths.qual }} className="px-2 py-1.5">
                     <Badge variant={e.qualifies ? 'success' : 'destructive'} className="text-[9px]">{e.qualifies ? 'YES' : 'NO'}</Badge>
                   </td>
-
-                  {/* SEARCH TERMS — inline editable */}
                   <td style={{ width: colWidths.searchTerms, overflow: 'hidden' }} className="px-2 py-1.5">
                     {editingId === e.id ? (
                       <input
@@ -329,7 +338,6 @@ export function ResearchTable() {
                       </span>
                     )}
                   </td>
-
                   <td style={{ width: colWidths.titleType }} className="px-2 py-1.5 text-[10px] text-primary">{e.titleType || '—'}</td>
                   <td style={{ width: colWidths.emotion }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.emotion || '—'}</td>
                   <td style={{ width: colWidths.hook }} className="px-2 py-1.5 text-[10px] text-muted-foreground">{e.hook || '—'}</td>
