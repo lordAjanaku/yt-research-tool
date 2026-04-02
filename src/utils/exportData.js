@@ -35,8 +35,8 @@ export function toCSV(entries) {
   const rows = prepared.map((e) =>
     cols
       .map((c) => {
-        const v = e[c] === undefined ? "" : String(e[c]);
-        return '"' + v.replace(/"/g, '""') + '"';
+        const v = e[c] === undefined ? "" : String(e[c])
+        return '"' + v.replace(/"/g, '""') + '"'
       })
       .join(","),
   );
