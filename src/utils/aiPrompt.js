@@ -70,3 +70,30 @@ export function buildCommentUserMessage(comments) {
   }))
   return `Analyze these ${comments.length} YouTube comments and return the comment analysis JSON:\n\n${JSON.stringify(data, null, 2)}`
 }
+
+// ── INDIVIDUAL OUTLIER LABELING ──
+
+export function buildLabelSystemPrompt() {
+  return `You are a YouTube metadata analyst. Analyze the provided video title and return ONLY valid JSON — no preamble, no explanation, no markdown code fences.
+
+Return exactly this structure:
+{
+  "titleType": "<one of: Tension | Mechanism | Contrarian | Stakes | Historical Revelation | Curiosity Gap | Listicle | How-to | Comparison>",
+  "emotion": "<one of: Fear | Curiosity | Outrage | Awe | Urgency | Validation | Shock | Relief | Nostalgia | Envy>",
+  "hook": "<one of: Bold Claim | Shocking Fact | Open Loop | Question | Contradiction>",
+  "pacing": "<one of: Slow | Medium | Fast>",
+  "targetAudience": "<one of: Beginners | Experts | Skeptics | Dreamers | General>",
+  "valueProp": "<one of: Educational | Entertaining | Inspirational | Transformation>",
+  "thumbnailConcept": "A short (5-10 words) description of the visual hook for the thumbnail.",
+  "arc": "A single sentence describing the narrative arc.",
+  "insight": "A single sentence explaining why this video is an outlier."
+}
+
+Rules:
+- All enum fields MUST use ONLY the exact values listed above.
+- Return ONLY the JSON object. Nothing else.`
+}
+
+export function buildLabelUserMessage(video) {
+  return `Analyze this YouTube video title and return the metadata JSON:\n\nTitle: "${video.title}"\nChannel: "${video.channel}"\nViews: ${video.views}\nOutlier Multiple: ${video.chMult}x`
+}
