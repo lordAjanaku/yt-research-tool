@@ -40,6 +40,7 @@ export const useStore = create(
         entries: [...s.entries, {
           ...entry,
           id: Date.now() + Math.random(),
+          transcript: entry.transcript || '',
           // Auto-populate searchTerms from search field if not explicitly provided
           searchTerms: entry.searchTerms || entry.search || '',
           qualifies: getQualifies({ ...entry, threshold: s.outlierThreshold }),

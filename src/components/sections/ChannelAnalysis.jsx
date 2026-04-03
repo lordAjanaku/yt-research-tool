@@ -187,7 +187,6 @@ export function ChannelAnalysis() {
   function logVideo(v) {
     addEntry({
       search: channelInfo?.name || "",
-      // Videos from Channel Analysis get a fixed search term label
       searchTerms: "From Channel",
       title: v.title,
       channel: v.channel,
@@ -207,6 +206,7 @@ export function ChannelAnalysis() {
       pacing: "",
       arc: "",
       insight: "",
+      transcript: "",
     });
   }
 

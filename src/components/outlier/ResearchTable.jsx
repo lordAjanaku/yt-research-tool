@@ -12,6 +12,10 @@ import { useStore } from "@/store/useStore";
 import { fmtNum } from "@/utils/numbers";
 import { toCSV, prepareForExport, downloadFile } from "@/utils/exportData";
 import { parseCSV } from "@/utils/csvParser";
+import { useAIAnalysis } from "@/hooks/useAIAnalysis";
+import { TranscriptDialog } from "./TranscriptDialog";
+import { Sparkles, FileText } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 const TITLE_TYPES = [
   "Tension",
@@ -20,6 +24,9 @@ const TITLE_TYPES = [
   "Stakes",
   "Historical Revelation",
   "Curiosity Gap",
+  "Listicle",
+  "How-to",
+  "Comparison",
 ];
 
 const DEFAULT_WIDTHS = {
@@ -36,7 +43,10 @@ const DEFAULT_WIDTHS = {
   emotion: 90,
   hook: 110,
   pacing: 70,
-  actions: 60,
+  audience: 100,
+  valueProp: 100,
+  thumb: 150,
+  actions: 80,
 };
 
 // Subs exported as raw (e.g. 22000). On import normalise back to K.
@@ -46,6 +56,8 @@ function normaliseSubs(v) {
   const n = parseFloat(v) || 0;
   return n > 500 ? Math.round(n / 1000) : n;
 }
+
+const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
 export function ResearchTable() {
   const {
@@ -67,7 +79,29 @@ export function ResearchTable() {
   // inline edit state for searchTerms cell
   const [editingId, setEditingId] = useState(null);
   const [editingVal, setEditingVal] = useState("");
+  const [transcriptOpenId, setTranscriptOpenId] = useState(null);
+  const [labelingIds, setLabelingIds] = useState(new Set());
+  const { labelVideo } = useAIAnalysis();
   const resizing = useRef(null);
+
+  const handleAutoLabel = useCallback(async (id) => {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    
+    setLabelingIds(prev => new Set(prev).add(id));
+    try {
+      const result = await labelVideo(entry);
+      updateEntry(id, result);
+    } catch (err) {
+      console.error("Labeling failed:", err);
+    } finally {
+      setLabelingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }, [entries, labelVideo, updateEntry]);
 
   const startResize = useCallback(
     (col, e) => {
@@ -126,6 +160,29 @@ export function ResearchTable() {
     });
     return r;
   }, [entries, sortCol, sortDir, filterQual, filterType]);
+
+  const handleBulkLabel = useCallback(async () => {
+    const toLabel = Array.from(selected);
+    for (const id of toLabel) {
+      await handleAutoLabel(id);
+      await sleep(1000); // 1s delay to prevent 429
+    }
+  }, [selected, handleAutoLabel]);
+
+  const handleLabelAll = useCallback(async () => {
+    const toLabel = rows.map((r) => r.id);
+    if (!toLabel.length) return;
+    if (
+      !confirm(
+        `Label all ${toLabel.length} visible rows? This will use many AI tokens.`,
+      )
+    )
+      return;
+    for (const id of toLabel) {
+      await handleAutoLabel(id);
+      await sleep(1000); // 1s delay to prevent 429
+    }
+  }, [rows, handleAutoLabel]);
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -295,6 +352,20 @@ export function ResearchTable() {
               </span>
               <Button
                 size="sm"
+                variant="outline"
+                className="text-[10px] h-6 px-2 border-primary/50 text-primary hover:bg-primary/10"
+                onClick={handleBulkLabel}
+                disabled={labelingIds.size > 0}
+              >
+                {labelingIds.size > 0 ? (
+                  <Spinner size={10} className="mr-1" />
+                ) : (
+                  <Sparkles size={10} className="mr-1" />
+                )}
+                Auto-Label
+              </Button>
+              <Button
+                size="sm"
                 variant="destructive"
                 className="text-[10px] h-6 px-2"
                 onClick={() => {
@@ -437,6 +508,21 @@ export function ResearchTable() {
           >
             Import
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-[10px] h-6 px-2 border-primary/30 text-primary/80 hover:bg-primary/10"
+            onClick={handleLabelAll}
+            disabled={labelingIds.size > 0 || rows.length === 0}
+            title="Auto-label all visible rows"
+          >
+            {labelingIds.size > 0 ? (
+              <Spinner size={10} className="mr-1" />
+            ) : (
+              <Sparkles size={10} className="mr-1" />
+            )}
+            Auto-Label All
+          </Button>
         </div>
       </div>
 
@@ -480,6 +566,9 @@ export function ResearchTable() {
                 <Th col="emotion" label="Emotion" />
                 <Th col="hook" label="Hook" />
                 <Th col="pacing" label="Pacing" />
+                <Th col="audience" label="Audience" />
+                <Th col="valueProp" label="Value Prop" />
+                <Th col="thumb" label="Thumbnail" />
                 <th
                   style={{ width: colWidths.actions }}
                   className="px-2 py-2"
@@ -636,9 +725,47 @@ export function ResearchTable() {
                     {e.pacing || "—"}
                   </td>
                   <td
-                    style={{ width: colWidths.actions }}
-                    className="px-2 py-1.5"
+                    style={{ width: colWidths.audience }}
+                    className="px-2 py-1.5 text-[10px] text-muted-foreground"
                   >
+                    {e.targetAudience || "—"}
+                  </td>
+                  <td
+                    style={{ width: colWidths.valueProp }}
+                    className="px-2 py-1.5 text-[10px] text-muted-foreground"
+                  >
+                    {e.valueProp || "—"}
+                  </td>
+                  <td
+                    style={{ width: colWidths.thumb, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    className="px-2 py-1.5 text-[10px] text-muted-foreground"
+                    title={e.thumbnailConcept}
+                  >
+                    {e.thumbnailConcept || "—"}
+                  </td>
+                  <td
+                    style={{ width: colWidths.actions }}
+                    className="px-2 py-1.5 flex items-center gap-1"
+                  >
+                    <button
+                      onClick={() => setTranscriptOpenId(e.id)}
+                      className="text-muted-foreground hover:text-primary transition-colors px-1"
+                      title="Add/Edit Transcript"
+                    >
+                      <FileText size={10} />
+                    </button>
+                    <button
+                      onClick={() => handleAutoLabel(e.id)}
+                      disabled={labelingIds.has(e.id)}
+                      className="text-muted-foreground hover:text-primary transition-colors px-1"
+                      title="Auto-label with AI"
+                    >
+                      {labelingIds.has(e.id) ? (
+                        <Spinner size={10} />
+                      ) : (
+                        <Sparkles size={10} />
+                      )}
+                    </button>
                     <button
                       onClick={() => deleteEntry(e.id)}
                       className="text-muted-foreground hover:text-destructive text-xs transition-colors px-1"
@@ -652,6 +779,15 @@ export function ResearchTable() {
           </table>
         )}
       </div>
+      {transcriptOpenId && (
+        <TranscriptDialog
+          isOpen={!!transcriptOpenId}
+          onClose={() => setTranscriptOpenId(null)}
+          entry={entries.find((e) => e.id === transcriptOpenId)}
+          onSave={(t) => updateEntry(transcriptOpenId, { transcript: t })}
+        />
+      )}
+
     </div>
   );
 }

@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, ClipboardList } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import { useStore } from '@/store/useStore'
 import { parseCSV } from '@/utils/csvParser'
 import { downloadFile } from '@/utils/exportData'
+import { generateBriefMarkdown } from '@/utils/briefFormatter'
+import { BriefDialog } from '@/components/outlier/BriefDialog'
 import {
   buildSystemPrompt, buildUserMessage,
   buildCommentSystemPrompt, buildCommentUserMessage
@@ -125,7 +127,6 @@ export function PatternAnalysis() {
   const [outlierResult, setOutlierResult] = useState(null)
   const [outlierError, setOutlierError] = useState('')
   const [outlierFromCache, setOutlierFromCache] = useState(false)
-  // Cache: { key: string, result: object }
   const outlierCache = useRef(null)
 
   const [commentURL, setCommentURL] = useState('')
@@ -140,6 +141,9 @@ export function PatternAnalysis() {
   const [commentResult, setCommentResult] = useState(null)
   const [commentError, setCommentError] = useState('')
   const [activeTab, setActiveTab] = useState('outlier')
+  
+  const [briefOpen, setBriefOpen] = useState(false)
+  const [briefContent, setBriefContent] = useState('')
 
   const outlierData = useMemo(() => {
     const base = outlierSource === 'store' ? entries : uploadedEntries
@@ -169,7 +173,6 @@ export function PatternAnalysis() {
     if (!outlierData.length) { setOutlierError('No data to analyse.'); return }
     if (!aiApiKey) { setOutlierError('No AI API key configured. Go to API Keys settings.'); return }
 
-    // Check cache — skip API call if same data and not forcing refresh
     const cacheKey = makeCacheKey(outlierData)
     if (!forceRefresh && outlierCache.current?.key === cacheKey) {
       setOutlierResult(outlierCache.current.result)
@@ -397,7 +400,6 @@ export function PatternAnalysis() {
             {allComments.length > 0 && <TabsTrigger value="commentsraw" className="text-[10px]">Raw Comments ({allComments.length})</TabsTrigger>}
           </TabsList>
 
-          {/* OUTLIER TAB */}
           <TabsContent value="outlier" className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
@@ -407,33 +409,31 @@ export function PatternAnalysis() {
                     sub={outlierRunning ? 'Sending data to AI, please wait' : 'Configure data source in left panel and run Outlier Analysis'} />
                 ) : (
                   <>
-                    {/* RESULT HEADER — cache indicator + actions */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        {outlierFromCache && (
-                          <Badge variant="outline" className="text-[9px] text-muted-foreground border-muted-foreground">
-                            Cached result
-                          </Badge>
-                        )}
-                        {belowMinimum && (
-                          <Badge variant="outline" className="text-[9px] text-yellow-400 border-yellow-500/40">
-                            ⚠ Low sample ({outlierData.length}/{MIN_RELIABLE})
-                          </Badge>
-                        )}
+                        {outlierFromCache && <Badge variant="outline" className="text-[9px] text-muted-foreground border-muted-foreground">Cached result</Badge>}
+                        {belowMinimum && <Badge variant="outline" className="text-[9px] text-yellow-400 border-yellow-500/40">⚠ Low sample ({outlierData.length}/{MIN_RELIABLE})</Badge>}
                       </div>
                       <div className="flex items-center gap-1">
                         {outlierFromCache && (
-                          <Button size="sm" variant="ghost" className="text-[10px] h-6 px-2 text-muted-foreground hover:text-primary"
-                            onClick={() => runOutlierAnalysis(true)} disabled={outlierRunning}>
-                            Force re-run
-                          </Button>
+                          <Button size="sm" variant="ghost" className="text-[10px] h-6 px-2 text-muted-foreground hover:text-primary" onClick={() => runOutlierAnalysis(true)} disabled={outlierRunning}>Force re-run</Button>
                         )}
-                        <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>
-                          Export JSON
+                        <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportOutlierResult}>Export JSON</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-[10px] h-6 px-2 border-primary/30 text-primary/80 hover:bg-primary/10"
+                          onClick={() => {
+                            const brief = generateBriefMarkdown(null, outlierResult, { title: "Outlier Video Strategy" }) 
+                            setBriefContent(brief)
+                            setBriefOpen(true)
+                          }}
+                        >
+                          <ClipboardList size={10} className="mr-1" />
+                          Export Brief
                         </Button>
                       </div>
                     </div>
-
                     <ResultSection title="Dominant Patterns">
                       <div className="grid grid-cols-2 gap-2">
                         {[['Title Type', outlierResult.dominant_title_type], ['Hook Structure', outlierResult.dominant_hook], ['Emotional Trigger', outlierResult.dominant_emotion], ['Pacing', outlierResult.dominant_pacing]].map(([label, value]) => (
@@ -477,8 +477,6 @@ export function PatternAnalysis() {
               </div>
             </ScrollArea>
           </TabsContent>
-
-          {/* COMMENT ANALYSIS TAB */}
           <TabsContent value="comments" className="flex-1 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-4 max-w-3xl mx-auto flex flex-col gap-4">
@@ -488,14 +486,8 @@ export function PatternAnalysis() {
                     sub={commentRunning ? 'Sending comments to AI, please wait' : 'Fetch comments using the left panel then run AI Analysis'} />
                 ) : (
                   <>
-                    <div className="flex justify-end">
-                      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>Export JSON</Button>
-                    </div>
-                    <ResultSection title="Dominant Audience Emotion">
-                      <div className="border border-primary/40 bg-primary/5 p-3 inline-block">
-                        <p className="font-head font-bold text-lg tracking-widest text-primary">{commentResult.audience_emotion}</p>
-                      </div>
-                    </ResultSection>
+                    <div className="flex justify-end"><Button size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={exportCommentResult}>Export JSON</Button></div>
+                    <ResultSection title="Dominant Audience Emotion"><div className="border border-primary/40 bg-primary/5 p-3 inline-block"><p className="font-head font-bold text-lg tracking-widest text-primary">{commentResult.audience_emotion}</p></div></ResultSection>
                     {[
                       { title: 'Recurring Questions from Audience', key: 'recurring_questions', icon: '?', color: 'text-primary', note: "Questions the audience repeatedly asks that existing videos don't answer." },
                       { title: 'Content Complaints', key: 'content_complaints', icon: '✗', color: 'text-destructive', note: 'Specific things the audience says existing videos fail to cover.' },
@@ -519,8 +511,6 @@ export function PatternAnalysis() {
               </div>
             </ScrollArea>
           </TabsContent>
-
-          {/* RAW COMMENTS TAB */}
           {allComments.length > 0 && (
             <TabsContent value="commentsraw" className="flex-1 overflow-hidden">
               <div className="flex flex-col h-full overflow-hidden">
@@ -559,6 +549,15 @@ export function PatternAnalysis() {
           )}
         </Tabs>
       </div>
+      <BriefDialog 
+        isOpen={briefOpen} 
+        onClose={() => setBriefOpen(false)} 
+        briefContent={briefContent}
+        onDownload={() => {
+          downloadFile(briefContent, `production_brief_${date}.md`, 'text/markdown')
+          setBriefOpen(false)
+        }}
+      />
     </div>
   )
 }
