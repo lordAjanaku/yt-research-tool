@@ -20,20 +20,7 @@ import {
 
 const PANEL_WIDTH = 360
 const MIN_RELIABLE = 8   // minimum entries for reliable pattern extraction
-const AI_PROVIDERS = [
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'groq', label: 'Groq' },
-  { value: 'gemini', label: 'Google Gemini' },
-  { value: 'anthropic', label: 'Anthropic (Claude)' },
-  { value: 'openai', label: 'OpenAI (GPT)' },
-]
-const ENDPOINTS = {
-  anthropic: 'https://api.anthropic.com/v1/messages',
-  openai: 'https://api.openai.com/v1/chat/completions',
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
-  groq: 'https://api.groq.com/openai/v1/chat/completions',
-}
+import { AI_PROVIDERS, ENDPOINTS } from '@/utils/aiConfig'
 
 // Stable cache key from input data — same entries in any order = same key
 function makeCacheKey(entries) {

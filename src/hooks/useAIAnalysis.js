@@ -5,16 +5,7 @@ import {
   buildLabelSystemPrompt,
   buildLabelUserMessage,
 } from "../utils/aiPrompt";
-
-const ENDPOINTS = {
-  anthropic: "https://api.anthropic.com/v1/messages",
-  openai: "https://api.openai.com/v1/chat/completions",
-  // Use the version that matched your dashboard
-  gemini:
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-  openrouter: "https://openrouter.ai/api/v1/chat/completions",
-  groq: "https://api.groq.com/openai/v1/chat/completions",
-};
+import { ENDPOINTS } from "../utils/aiConfig";
 
 export function useAIAnalysis() {
   const { aiProvider, aiApiKey } = useStore();
@@ -42,8 +33,10 @@ export function useAIAnalysis() {
       const d = await r.json();
       if (d.error) throw new Error(d.error.message);
       raw = d.content?.[0]?.text || "";
-    } else if (aiProvider === "gemini") {
-      const r = await fetch(`${ENDPOINTS.gemini}?key=${aiApiKey}`, {
+    } else if (aiProvider.startsWith("gemini")) {
+      const url = `${ENDPOINTS[aiProvider]}?key=${aiApiKey}`;
+      
+      const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -83,6 +76,8 @@ export function useAIAnalysis() {
           model:
             aiProvider === "groq"
               ? "llama-3.3-70b-versatile"
+              : aiProvider === "deepseek"
+              ? "deepseek-chat"
               : "openai/gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },

@@ -7,14 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useStore } from '@/store/useStore'
 import { useYouTubeAPI } from '@/hooks/useYouTubeAPI'
 import { useAIAnalysis } from '@/hooks/useAIAnalysis'
-
-const AI_PROVIDERS = [
-  { value: 'openrouter', label: 'OpenRouter (free models)' },
-  { value: 'groq', label: 'Groq (free tier)' },
-  { value: 'gemini', label: 'Google Gemini (free tier)' },
-  { value: 'anthropic', label: 'Anthropic (Claude)' },
-  { value: 'openai', label: 'OpenAI (GPT)' },
-]
+import { AI_PROVIDERS } from '@/utils/aiConfig'
 
 export function APIKeys() {
   const {
